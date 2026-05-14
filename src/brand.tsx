@@ -125,3 +125,200 @@ export function SpinnerIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function PlusIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5 V19" />
+      <path d="M5 12 H19" />
+    </svg>
+  );
+}
+
+export function MailIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7 L12 13 L21 7" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20 L16.5 16.5" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 18 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6 L18 18" />
+      <path d="M18 6 L6 18" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ size = 14 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 4 L20 10 L9 21 H3 V15 Z" />
+      <path d="M13 5 L19 11" />
+    </svg>
+  );
+}
+
+export function EyeIcon({ size = 14 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12 C 5 6, 9 4, 12 4 C 15 4, 19 6, 22 12 C 19 18, 15 20, 12 20 C 9 20, 5 18, 2 12 Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ size = 14 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7 H20" />
+      <path d="M9 7 V4 H15 V7" />
+      <path d="M6 7 L7 20 H17 L18 7" />
+      <path d="M10 11 V17" />
+      <path d="M14 11 V17" />
+    </svg>
+  );
+}
+
+export function UsersIcon({ size = 18 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="3.5" />
+      <path d="M3 20 C 3 16, 6 14, 9 14 C 12 14, 15 16, 15 20" />
+      <circle cx="17" cy="10" r="2.5" />
+      <path d="M16 14.2 C 19 14.5, 21 16.2, 21 19.5" />
+    </svg>
+  );
+}
+
+export function GraduationIcon({ size = 18 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 9 L12 4 L22 9 L12 14 Z" />
+      <path d="M6 11 V17 C 6 18, 9 19.5, 12 19.5 C 15 19.5, 18 18, 18 17 V11" />
+      <path d="M22 9 V14" />
+    </svg>
+  );
+}
+
+export function LogoutIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 4 H19 V20 H14" />
+      <path d="M3 12 H15" />
+      <path d="M9 7 L4 12 L9 17" />
+    </svg>
+  );
+}

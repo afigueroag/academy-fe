@@ -1,8 +1,16 @@
 import type {
   HTTPValidationError,
+  InviteToken,
+  ListUsersParams,
   Token,
+  UserCreate,
+  UserInvite,
   UserMe,
+  UserPassword,
+  UserPublic,
+  UserRead,
   UserSignUp,
+  UserUpdate,
   ValidationError,
 } from './types';
 
@@ -75,6 +83,33 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, `Error ${res.status}`);
 }
 
+interface AuthFetchOptions {
+  method?: string;
+  body?: unknown;
+  token?: string;
+}
+
+async function authFetch(path: string, opts: AuthFetchOptions = {}): Promise<Response> {
+  const token = opts.token ?? getToken();
+  if (!token) throw new ApiError(401, 'No autenticado');
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  let body: BodyInit | undefined;
+  if (opts.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(opts.body);
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: opts.method ?? 'GET',
+    headers,
+    body,
+  });
+  return res;
+}
+
 export async function register(payload: UserSignUp): Promise<void> {
   const res = await fetch(`${API_BASE}/register`, {
     method: 'POST',
@@ -99,12 +134,72 @@ export async function login(email: string, password: string): Promise<Token> {
 }
 
 export async function getMe(): Promise<UserMe> {
-  const token = getToken();
-  if (!token) throw new ApiError(401, 'No autenticado');
-
-  const res = await fetch(`${API_BASE}/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await authFetch('/me');
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as UserMe;
+}
+
+export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
+  const q = new URLSearchParams();
+  q.set('role', params.role);
+  if (params.status && params.status !== 'all') q.set('status', params.status);
+  if (params.search) q.set('search', params.search);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+
+  const res = await authFetch(`/users?${q.toString()}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserRead[];
+}
+
+export async function getUser(id: number): Promise<UserRead> {
+  const res = await authFetch(`/users/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserRead;
+}
+
+export async function createUser(payload: UserCreate): Promise<UserRead> {
+  const res = await authFetch('/users', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserRead;
+}
+
+export async function updateUser(
+  id: number,
+  payload: UserUpdate,
+): Promise<UserRead> {
+  const res = await authFetch(`/users/${id}`, { method: 'PATCH', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserRead;
+}
+
+export async function deleteUser(id: number): Promise<UserPublic> {
+  const res = await authFetch(`/users/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserPublic;
+}
+
+export async function inviteUser(payload: UserInvite): Promise<InviteToken> {
+  const res = await authFetch('/users/invite', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as InviteToken;
+}
+
+export async function getInvitee(inviteToken: string): Promise<UserPublic> {
+  const res = await authFetch('/invites', { token: inviteToken });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserPublic;
+}
+
+export async function acceptInvite(
+  inviteToken: string,
+  payload: UserPassword,
+): Promise<UserPublic> {
+  const res = await authFetch('/invites', {
+    method: 'POST',
+    body: payload,
+    token: inviteToken,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserPublic;
 }

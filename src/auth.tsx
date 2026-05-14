@@ -2,16 +2,18 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import type { UserMe } from './types';
 import { applyTheme, resetTheme } from './theme';
-import { clearToken } from './api';
+import { clearToken, getMe, getToken } from './api';
 
 interface AuthContextValue {
   me: UserMe | null;
+  loading: boolean;
   setMe: (user: UserMe) => void;
   logout: () => void;
 }
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMeState] = useState<UserMe | null>(null);
+  const [loading, setLoading] = useState<boolean>(() => !!getToken());
 
   const setMe = useCallback((user: UserMe) => {
     setMeState(user);
@@ -36,7 +39,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetTheme();
   }, []);
 
-  const value = useMemo(() => ({ me, setMe, logout }), [me, setMe, logout]);
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getMe();
+        if (!cancelled) setMe(user);
+      } catch {
+        if (!cancelled) {
+          clearToken();
+          setMeState(null);
+          resetTheme();
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setMe]);
+
+  const value = useMemo(
+    () => ({ me, loading, setMe, logout }),
+    [me, loading, setMe, logout],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

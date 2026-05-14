@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRightIcon,
   BRAND_TAGLINE,
@@ -11,9 +11,16 @@ import { useAuth } from '../auth';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+interface LoginLocationState {
+  success?: string;
+}
+
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setMe } = useAuth();
+
+  const successMessage = (location.state as LoginLocationState | null)?.success ?? null;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -95,6 +102,12 @@ export default function Login() {
           <p className="auth-card__subtitle">
             Ingresa con tu cuenta para administrar tu academia.
           </p>
+
+          {successMessage && !serverError && (
+            <div className="alert alert--success" role="status">
+              {successMessage}
+            </div>
+          )}
 
           {serverError && (
             <div className="alert" role="alert">
