@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import StatusBadge from '../components/StatusBadge';
 import UserForm from '../components/UserForm';
 import InviteForm from '../components/InviteForm';
+import InviteResult from '../components/InviteResult';
 import UserDetails from '../components/UserDetails';
 import {
   ApiError,
@@ -93,6 +94,12 @@ export default function UsersModule(props: UsersModuleProps) {
   const [submitting, setSubmitting] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [panelApiError, setPanelApiError] = useState<ApiError | null>(null);
+  const [inviteResult, setInviteResult] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    link: string;
+  } | null>(null);
 
   const [toDelete, setToDelete] = useState<UserRead | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -158,14 +165,21 @@ export default function UsersModule(props: UsersModuleProps) {
 
   const closePanel = useCallback(() => {
     if (submitting) return;
+    const wasInviteResult = inviteResult !== null;
     setPanel(null);
     setPanelError(null);
     setPanelApiError(null);
-  }, [submitting]);
+    setInviteResult(null);
+    if (wasInviteResult) {
+      fetchList();
+      fetchActiveCount();
+    }
+  }, [submitting, inviteResult, fetchList, fetchActiveCount]);
 
   const openInvite = () => {
     setPanelError(null);
     setPanelApiError(null);
+    setInviteResult(null);
     setPanel({ kind: 'invite' });
   };
   const openCreate = () => {
@@ -189,17 +203,22 @@ export default function UsersModule(props: UsersModuleProps) {
     setPanelError(null);
     setPanelApiError(null);
     try {
-      await inviteUser(payload);
-      showToast(`Invitación enviada a ${payload.email}`);
-      setPanel(null);
-      fetchList();
-      fetchActiveCount();
+      const result = await inviteUser(payload);
+      const link = `${window.location.origin}/invite?token=${encodeURIComponent(
+        result.invite_token,
+      )}`;
+      setInviteResult({
+        firstName: payload.first_name,
+        lastName: payload.last_name,
+        email: payload.email,
+        link,
+      });
     } catch (err) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
         setPanelError(err.message);
       } else {
-        setPanelError('No se pudo enviar la invitación.');
+        setPanelError('No se pudo generar la invitación.');
       }
     } finally {
       setSubmitting(false);
@@ -426,19 +445,28 @@ export default function UsersModule(props: UsersModuleProps) {
 
       <SidePanel
         open={panel?.kind === 'invite'}
-        title={inviteTitle}
+        title={inviteResult ? 'Invitación generada' : inviteTitle}
         onClose={closePanel}
       >
-        {panel?.kind === 'invite' && (
-          <InviteForm
-            role={role}
-            onSubmit={handleInvite}
-            onCancel={closePanel}
-            submitting={submitting}
-            serverError={panelError}
-            apiError={panelApiError}
-          />
-        )}
+        {panel?.kind === 'invite' &&
+          (inviteResult ? (
+            <InviteResult
+              firstName={inviteResult.firstName}
+              lastName={inviteResult.lastName}
+              email={inviteResult.email}
+              link={inviteResult.link}
+              onDone={closePanel}
+            />
+          ) : (
+            <InviteForm
+              role={role}
+              onSubmit={handleInvite}
+              onCancel={closePanel}
+              submitting={submitting}
+              serverError={panelError}
+              apiError={panelApiError}
+            />
+          ))}
       </SidePanel>
 
       <SidePanel

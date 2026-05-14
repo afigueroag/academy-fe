@@ -70,8 +70,8 @@ export default function InviteForm({
           marginBottom: 18,
         }}
       >
-        Enviaremos un correo con el enlace para que active su cuenta y
-        configure su contraseña.
+        Generaremos un enlace de invitación que podrás copiar y compartir por
+        el medio que prefieras (correo, WhatsApp, etc.).
       </p>
 
       <div className="field--row">
