@@ -170,7 +170,14 @@ export function buildWeekEvents(
         durationMin: c.duration_minutes,
       });
     } else {
+      const startDate = c.start_date ? parseDate(c.start_date) : null;
+      const endDate = c.end_date ? parseDate(c.end_date) : null;
       c.schedules.forEach((s, i) => {
+        const dayIdx = DAY_ORDER.indexOf(s.schedule_day);
+        if (dayIdx < 0) return;
+        const instanceDate = addDays(monday, dayIdx);
+        if (startDate && instanceDate < startDate) return;
+        if (endDate && instanceDate > endDate) return;
         events.push({
           course: c,
           scheduleIndex: i,
