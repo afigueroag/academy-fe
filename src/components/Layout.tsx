@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth';
 import {
+  CalendarIcon,
   GraduationIcon,
   Logo,
   LogoutIcon,
@@ -52,6 +53,15 @@ export default function Layout({ title, actions, children }: LayoutProps) {
           >
             <UsersIcon size={18} />
             <span>Instructores</span>
+          </NavLink>
+          <NavLink
+            to="/classes"
+            className={({ isActive }) =>
+              'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+            }
+          >
+            <CalendarIcon size={18} />
+            <span>Clases</span>
           </NavLink>
         </nav>
 

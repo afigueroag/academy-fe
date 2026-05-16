@@ -1,6 +1,14 @@
 import type {
+  CourseCreate,
+  CourseRead,
+  CourseUpdate,
+  EnrollmentCreate,
+  EnrollmentRead,
+  EnrollmentUpdate,
   HTTPValidationError,
   InviteToken,
+  ListCoursesParams,
+  ListEnrollmentsParams,
   ListUsersParams,
   Token,
   UserCreate,
@@ -202,4 +210,99 @@ export async function acceptInvite(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as UserPublic;
+}
+
+export async function listCourses(
+  params: ListCoursesParams = {},
+): Promise<CourseRead[]> {
+  const q = new URLSearchParams();
+  if (params.status && params.status !== 'all') q.set('status', params.status);
+  if (params.instructor) q.set('instructor', params.instructor);
+  if (params.search) q.set('search', params.search);
+  if (params.active !== undefined) q.set('active', String(params.active));
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+
+  const qs = q.toString();
+  const res = await authFetch(`/courses${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseRead[];
+}
+
+export async function getCourse(id: number): Promise<CourseRead> {
+  const res = await authFetch(`/courses/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseRead;
+}
+
+export async function createCourse(payload: CourseCreate): Promise<CourseRead> {
+  const res = await authFetch('/courses', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseRead;
+}
+
+export async function updateCourse(
+  id: number,
+  payload: CourseUpdate,
+): Promise<CourseRead> {
+  const res = await authFetch(`/courses/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseRead;
+}
+
+export async function deleteCourse(id: number): Promise<CourseRead> {
+  const res = await authFetch(`/courses/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseRead;
+}
+
+export async function listEnrollments(
+  params: ListEnrollmentsParams = {},
+): Promise<EnrollmentRead[]> {
+  const q = new URLSearchParams();
+  if (params.course_id !== undefined) q.set('course_id', String(params.course_id));
+  if (params.student_id !== undefined) q.set('student_id', String(params.student_id));
+  if (params.status) q.set('status', params.status);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+
+  const qs = q.toString();
+  const res = await authFetch(`/enrollments${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as EnrollmentRead[];
+}
+
+export async function createEnrollment(
+  payload: EnrollmentCreate,
+): Promise<EnrollmentRead> {
+  const res = await authFetch('/enrollments', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as EnrollmentRead;
+}
+
+export async function updateEnrollment(
+  course_id: number,
+  student_id: number,
+  payload: EnrollmentUpdate,
+): Promise<EnrollmentRead> {
+  const res = await authFetch(`/enrollments/${course_id}/${student_id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as EnrollmentRead;
+}
+
+export async function deleteEnrollment(
+  course_id: number,
+  student_id: number,
+): Promise<EnrollmentRead> {
+  const res = await authFetch(`/enrollments/${course_id}/${student_id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as EnrollmentRead;
 }
