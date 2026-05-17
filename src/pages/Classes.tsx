@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import SidePanel from '../components/SidePanel';
 import ConfirmModal from '../components/ConfirmModal';
-import CourseStatusBadge from '../components/CourseStatusBadge';
+import { CourseStatusBadge } from '../components/Badges';
 import CourseForm from '../components/CourseForm';
 import CourseDetails from '../components/CourseDetails';
 import CalendarView from '../components/CalendarView';

@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import SidePanel from '../components/SidePanel';
 import ConfirmModal from '../components/ConfirmModal';
-import StatusBadge from '../components/StatusBadge';
+import { StatusBadge } from '../components/Badges';
 import UserForm from '../components/UserForm';
 import InviteForm from '../components/InviteForm';
 import InviteResult from '../components/InviteResult';

@@ -1,6 +1,6 @@
 import type { CourseRead, ScheduleDay } from '../types';
 import { formatMoney } from '../utils/money';
-import CourseStatusBadge from './CourseStatusBadge';
+import { CourseStatusBadge } from './Badges';
 import EnrollmentSection from './EnrollmentSection';
 
 const DAY_LABEL: Record<ScheduleDay, string> = {

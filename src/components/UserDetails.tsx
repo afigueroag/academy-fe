@@ -1,5 +1,5 @@
 import type { PaymentMethod, UserRead } from '../types';
-import StatusBadge from './StatusBadge';
+import { StatusBadge } from './Badges';
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   credit_card: 'Tarjeta de crédito',

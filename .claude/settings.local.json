@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm src/components/StatusBadge.tsx src/components/CourseStatusBadge.tsx src/components/EnrollmentStatusBadge.tsx && ls src/components/)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\afigu\\repos\\academy-fe\\src\\components"
+    ]
+  }
+}
