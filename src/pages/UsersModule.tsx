@@ -4,20 +4,35 @@ import Layout from '../components/Layout';
 import SidePanel from '../components/SidePanel';
 import ConfirmModal from '../components/ConfirmModal';
 import { StatusBadge } from '../components/Badges';
-import UserForm from '../components/UserForm';
+import UserForm, { type StudentBillingSetup } from '../components/UserForm';
 import InviteForm from '../components/InviteForm';
 import InviteResult from '../components/InviteResult';
 import UserDetails from '../components/UserDetails';
+import RegisterPaymentForm from '../components/RegisterPaymentForm';
+import RecurringForm from '../components/RecurringForm';
+import { useAuth } from '../auth';
 import {
   ApiError,
+  createRecurringTransaction,
+  createTransaction,
   createUser,
   deleteUser,
   getToken,
   inviteUser,
   listUsers,
+  updateRecurringTransaction,
+  updateTransaction,
   updateUser,
 } from '../api';
 import type {
+  Debt,
+  RecurringTransactionCreate,
+  RecurringTransactionRead,
+  RecurringTransactionUpdate,
+  TransactionCategory,
+  TransactionRead,
+  TransactionUpdate,
+  TransactionUserRead,
   UserCreate,
   UserInvite,
   UserRead,
@@ -26,6 +41,7 @@ import type {
   UserUpdate,
 } from '../types';
 import {
+  CheckIcon,
   EyeIcon,
   MailIcon,
   PencilIcon,
@@ -34,6 +50,7 @@ import {
   SpinnerIcon,
   TrashIcon,
 } from '../brand';
+import { formatMoney } from '../utils/money';
 
 interface UsersModuleProps {
   role: UserRole;
@@ -45,6 +62,9 @@ interface UsersModuleProps {
   createTitle: string;
   editTitle: string;
   viewTitle: string;
+  showDebtColumns?: boolean;
+  debtFilter?: Debt | null;
+  onDebtFilterChange?: (d: Debt | null) => void;
 }
 
 type Filter = UserStatus | 'all';
@@ -54,6 +74,9 @@ type PanelState =
   | { kind: 'create' }
   | { kind: 'edit'; user: UserRead }
   | { kind: 'view'; user: UserRead }
+  | { kind: 'pay'; user: UserRead; tx: TransactionRead }
+  | { kind: 'rec-create'; user: UserRead; category: TransactionCategory }
+  | { kind: 'rec-edit'; user: UserRead; rec: RecurringTransactionRead }
   | null;
 
 const FILTERS: { value: Filter; label: string }[] = [
@@ -63,8 +86,53 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'Todos' },
 ];
 
+const DEBT_OPTIONS: { value: Debt | ''; label: string }[] = [
+  { value: '', label: 'Todos los cobros' },
+  { value: 'none', label: 'Al corriente' },
+  { value: 'any', label: 'Con deuda' },
+  { value: 'tuition', label: 'Mensualidad pendiente' },
+  { value: 'enrollment_fee', label: 'Inscripción pendiente' },
+];
+
 function initials(first: string, last: string): string {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
+}
+
+function formatDateShort(value: string | null): string {
+  if (!value) return '—';
+  const d = new Date(value + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: '2-digit',
+  });
+}
+
+function pendingToTransactionRead(
+  t: TransactionUserRead,
+  user: UserRead,
+): TransactionRead {
+  return {
+    id: t.id,
+    kind: t.kind,
+    category: t.category,
+    status: t.status,
+    description: t.description,
+    transaction_date: t.transaction_date,
+    amount: t.amount,
+    user_id: user.id,
+    external_name: null,
+    course_id: t.course_id,
+    period_start: t.period_start,
+    period_end: t.period_end,
+    paid_date: null,
+    payment_method: null,
+    recurring_id: t.recurring_id,
+    payment_reference: null,
+    payment_notes: null,
+    user: { id: user.id, first_name: user.first_name, last_name: user.last_name },
+  };
 }
 
 export default function UsersModule(props: UsersModuleProps) {
@@ -78,9 +146,14 @@ export default function UsersModule(props: UsersModuleProps) {
     createTitle,
     editTitle,
     viewTitle,
+    showDebtColumns = false,
+    debtFilter = null,
+    onDebtFilterChange,
   } = props;
 
   const token = getToken();
+  const { me } = useAuth();
+  const currency = me?.academy.currency ?? null;
 
   const [status, setStatus] = useState<Filter>('active');
   const [search, setSearch] = useState('');
@@ -126,6 +199,7 @@ export default function UsersModule(props: UsersModuleProps) {
         role,
         status,
         search: debouncedSearch || undefined,
+        debt_filter: debtFilter ?? undefined,
       });
       setUsers(data);
     } catch (err) {
@@ -138,7 +212,7 @@ export default function UsersModule(props: UsersModuleProps) {
     } finally {
       setLoading(false);
     }
-  }, [role, status, debouncedSearch]);
+  }, [role, status, debouncedSearch, debtFilter]);
 
   const fetchActiveCount = useCallback(async () => {
     try {
@@ -197,6 +271,32 @@ export default function UsersModule(props: UsersModuleProps) {
     setPanelApiError(null);
     setPanel({ kind: 'view', user });
   };
+  const openPay = (user: UserRead) => {
+    if (!user.pending_transactions || user.pending_transactions.length === 0) {
+      return;
+    }
+    const oldest = [...user.pending_transactions].sort((a, b) =>
+      a.transaction_date.localeCompare(b.transaction_date),
+    )[0];
+    setPanelError(null);
+    setPanelApiError(null);
+    setPanel({ kind: 'pay', user, tx: pendingToTransactionRead(oldest, user) });
+  };
+  const openPaySpecific = (user: UserRead, t: TransactionUserRead) => {
+    setPanelError(null);
+    setPanelApiError(null);
+    setPanel({ kind: 'pay', user, tx: pendingToTransactionRead(t, user) });
+  };
+  const openRecCreate = (user: UserRead, category: TransactionCategory) => {
+    setPanelError(null);
+    setPanelApiError(null);
+    setPanel({ kind: 'rec-create', user, category });
+  };
+  const openRecEdit = (user: UserRead, rec: RecurringTransactionRead) => {
+    setPanelError(null);
+    setPanelApiError(null);
+    setPanel({ kind: 'rec-edit', user, rec });
+  };
 
   const handleInvite = async (payload: UserInvite) => {
     setSubmitting(true);
@@ -225,14 +325,107 @@ export default function UsersModule(props: UsersModuleProps) {
     }
   };
 
-  const handleCreate = async (payload: UserCreate) => {
+  const [billingSetupError, setBillingSetupError] = useState<string | null>(
+    null,
+  );
+
+  const setupStudentBilling = async (
+    userId: number,
+    billing: StudentBillingSetup,
+  ): Promise<boolean> => {
+    if (!me?.academy) return true;
+    const academy = me.academy;
+    try {
+      if (
+        billing.createTuition &&
+        billing.tuitionAmount !== null &&
+        billing.tuitionBillingDay !== null &&
+        billing.tuitionStartDate
+      ) {
+        await createRecurringTransaction({
+          kind: 'sale',
+          category: 'tuition',
+          frequency: 'monthly',
+          user_id: userId,
+          amount: billing.tuitionAmount,
+          billing_day: billing.tuitionBillingDay,
+          start_date: billing.tuitionStartDate,
+          end_date: null,
+          external_name: null,
+          course_id: null,
+          description: 'Mensualidad',
+        });
+      }
+
+      if (billing.createEnrollment && academy.enrollment_fee_amount) {
+        if (academy.enrollment_fee_mode === 'annual_recurring') {
+          const month = academy.enrollment_fee_month ?? 1;
+          const year = new Date().getFullYear();
+          const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+          await createRecurringTransaction({
+            kind: 'sale',
+            category: 'enrollment_fee',
+            frequency: 'annual',
+            user_id: userId,
+            amount: academy.enrollment_fee_amount,
+            billing_day: 1,
+            start_date: startDate,
+            end_date: null,
+            external_name: null,
+            course_id: null,
+            description: 'Cuota anual',
+          });
+        } else if (academy.enrollment_fee_mode === 'one_time_on_signup') {
+          const today = new Date().toISOString().slice(0, 10);
+          await createTransaction({
+            kind: 'sale',
+            category: 'enrollment_fee',
+            status: 'pending',
+            user_id: userId,
+            amount: academy.enrollment_fee_amount,
+            transaction_date: today,
+            description: 'Inscripción',
+            external_name: null,
+            course_id: null,
+            period_start: null,
+            period_end: null,
+            paid_date: null,
+            payment_method: null,
+            recurring_id: null,
+            payment_reference: null,
+            payment_notes: null,
+          });
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCreate = async (
+    payload: UserCreate,
+    billing?: StudentBillingSetup,
+  ) => {
     setSubmitting(true);
     setPanelError(null);
     setPanelApiError(null);
+    setBillingSetupError(null);
     try {
-      await createUser(payload);
+      const created = await createUser(payload);
+      const needsBilling =
+        billing && (billing.createTuition || billing.createEnrollment);
+      let billingOk = true;
+      if (needsBilling) {
+        billingOk = await setupStudentBilling(created.id, billing!);
+      }
       showToast(`${payload.first_name} ${payload.last_name} creado`);
       setPanel(null);
+      if (!billingOk) {
+        setBillingSetupError(
+          'El estudiante se creó, pero no se pudieron configurar los cobros. Configura desde el detalle.',
+        );
+      }
       fetchList();
       fetchActiveCount();
     } catch (err) {
@@ -263,6 +456,72 @@ export default function UsersModule(props: UsersModuleProps) {
         setPanelError(err.message);
       } else {
         setPanelError('No se pudo actualizar el usuario.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecCreate = async (payload: RecurringTransactionCreate) => {
+    setSubmitting(true);
+    setPanelError(null);
+    setPanelApiError(null);
+    try {
+      await createRecurringTransaction(payload);
+      showToast('Cobro recurrente creado');
+      setPanel(null);
+      fetchList();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPanelApiError(err);
+        setPanelError(err.message);
+      } else {
+        setPanelError('No se pudo crear el cobro recurrente.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRecEdit = async (
+    id: number,
+    payload: RecurringTransactionUpdate,
+  ) => {
+    setSubmitting(true);
+    setPanelError(null);
+    setPanelApiError(null);
+    try {
+      await updateRecurringTransaction(id, payload);
+      showToast('Cobro recurrente actualizado');
+      setPanel(null);
+      fetchList();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPanelApiError(err);
+        setPanelError(err.message);
+      } else {
+        setPanelError('No se pudo actualizar el cobro recurrente.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePay = async (id: number, payload: TransactionUpdate) => {
+    setSubmitting(true);
+    setPanelError(null);
+    setPanelApiError(null);
+    try {
+      await updateTransaction(id, payload);
+      showToast('Pago registrado');
+      setPanel(null);
+      fetchList();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPanelApiError(err);
+        setPanelError(err.message);
+      } else {
+        setPanelError('No se pudo registrar el pago.');
       }
     } finally {
       setSubmitting(false);
@@ -329,6 +588,23 @@ export default function UsersModule(props: UsersModuleProps) {
             aria-label="Buscar"
           />
         </div>
+        {showDebtColumns && onDebtFilterChange && (
+          <select
+            className="select"
+            value={debtFilter ?? ''}
+            onChange={(e) =>
+              onDebtFilterChange((e.target.value as Debt | '') || null)
+            }
+            aria-label="Filtrar por cobros"
+            style={{ width: 'auto', maxWidth: 240 }}
+          >
+            {DEBT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="tab-group" role="tablist">
           {FILTERS.map((f) => (
             <button
@@ -352,6 +628,24 @@ export default function UsersModule(props: UsersModuleProps) {
         {listError && (
           <div className="alert" role="alert" style={{ marginBottom: 12 }}>
             {listError}
+          </div>
+        )}
+        {billingSetupError && (
+          <div
+            className="alert alert--warning"
+            role="alert"
+            style={{ marginBottom: 12 }}
+          >
+            {billingSetupError}
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setBillingSetupError(null)}
+              aria-label="Cerrar"
+              style={{ marginLeft: 'auto' }}
+            >
+              ×
+            </button>
           </div>
         )}
         {toast && (
@@ -381,62 +675,127 @@ export default function UsersModule(props: UsersModuleProps) {
                   <th>Nombre completo</th>
                   <th>Email</th>
                   <th>Estado</th>
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                  {showDebtColumns && (
+                    <th
+                      className="table-cell--nowrap"
+                      style={{ textAlign: 'right' }}
+                    >
+                      Deuda
+                    </th>
+                  )}
+                  {showDebtColumns && (
+                    <th className="table-cell--nowrap">Próximo pago</th>
+                  )}
+                  <th
+                    className="table-cell--nowrap"
+                    style={{ textAlign: 'right' }}
+                  >
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="user-cell">
-                        <div
-                          className="user-cell__avatar"
-                          aria-hidden="true"
-                        >
-                          {initials(u.first_name, u.last_name)}
+                {users.map((u) => {
+                  const hasDebt = (u.debt_amount ?? 0) > 0;
+                  const hasPending =
+                    (u.pending_transactions?.length ?? 0) > 0;
+                  const payLabel = hasDebt ? 'Pagar' : 'Pagar próximo';
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="user-cell">
+                          <div
+                            className="user-cell__avatar"
+                            aria-hidden="true"
+                          >
+                            {initials(u.first_name, u.last_name)}
+                          </div>
+                          <div className="user-cell__name">
+                            {u.first_name} {u.last_name}
+                          </div>
                         </div>
-                        <div className="user-cell__name">
-                          {u.first_name} {u.last_name}
+                      </td>
+                      <td>{u.email ?? '—'}</td>
+                      <td>
+                        <StatusBadge status={u.status} />
+                      </td>
+                      {showDebtColumns && (
+                        <td
+                          className={
+                            'table-cell--nowrap' +
+                            (hasDebt ? ' table-cell--danger' : '')
+                          }
+                          style={{ textAlign: 'right' }}
+                        >
+                          {formatMoney(u.debt_amount ?? 0, currency)}
+                        </td>
+                      )}
+                      {showDebtColumns && (
+                        <td className="table-cell--nowrap">
+                          {u.next_due_date ? (
+                            <>
+                              <div className="table-cell-stacked__primary">
+                                {formatDateShort(u.next_due_date)}
+                              </div>
+                              <div className="table-cell-stacked__secondary">
+                                {formatMoney(u.next_due_amount, currency)}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="table-cell--muted">—</span>
+                          )}
+                        </td>
+                      )}
+                      <td
+                        className="table-cell--nowrap"
+                        style={{ textAlign: 'right' }}
+                      >
+                        <div className="row-actions">
+                          {showDebtColumns &&
+                            hasPending &&
+                            (hasDebt || u.next_due_date) && (
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => openPay(u)}
+                                title={payLabel}
+                                aria-label={payLabel}
+                              >
+                                <CheckIcon size={14} />
+                              </button>
+                            )}
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => openView(u)}
+                            title="Ver detalles"
+                            aria-label="Ver detalles"
+                          >
+                            <EyeIcon size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => openEdit(u)}
+                            title="Editar"
+                            aria-label="Editar"
+                          >
+                            <PencilIcon size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-btn icon-btn--danger"
+                            onClick={() => setToDelete(u)}
+                            title="Eliminar"
+                            aria-label="Eliminar"
+                          >
+                            <TrashIcon size={14} />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td>{u.email ?? '—'}</td>
-                    <td>
-                      <StatusBadge status={u.status} />
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div className="row-actions">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => openView(u)}
-                          title="Ver detalles"
-                          aria-label="Ver detalles"
-                        >
-                          <EyeIcon size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => openEdit(u)}
-                          title="Editar"
-                          aria-label="Editar"
-                        >
-                          <PencilIcon size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn icon-btn--danger"
-                          onClick={() => setToDelete(u)}
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                        >
-                          <TrashIcon size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -478,6 +837,7 @@ export default function UsersModule(props: UsersModuleProps) {
           <UserForm
             mode="create"
             role={role}
+            academy={me?.academy}
             onSubmit={handleCreate}
             onCancel={closePanel}
             submitting={submitting}
@@ -543,7 +903,106 @@ export default function UsersModule(props: UsersModuleProps) {
           ) : undefined
         }
       >
-        {panel?.kind === 'view' && <UserDetails user={panel.user} />}
+        {panel?.kind === 'view' && (
+          <UserDetails
+            user={panel.user}
+            role={role}
+            academy={me?.academy ?? null}
+            onPayPending={(t) =>
+              panel.kind === 'view' && openPaySpecific(panel.user, t)
+            }
+            onEditRecurring={(rec) =>
+              panel.kind === 'view' && openRecEdit(panel.user, rec)
+            }
+            onCreateRecurring={(category) =>
+              panel.kind === 'view' && openRecCreate(panel.user, category)
+            }
+            onRefresh={fetchList}
+          />
+        )}
+      </SidePanel>
+
+      <SidePanel
+        open={panel?.kind === 'pay'}
+        title="Registrar pago"
+        subtitle={
+          panel?.kind === 'pay'
+            ? `${panel.user.first_name} ${panel.user.last_name}`
+            : undefined
+        }
+        onClose={closePanel}
+      >
+        {panel?.kind === 'pay' && (
+          <RegisterPaymentForm
+            transaction={panel.tx}
+            defaultMethod={panel.user.payment_method}
+            currency={currency}
+            onSubmit={(payload) => handlePay(panel.tx.id, payload)}
+            onCancel={closePanel}
+            submitting={submitting}
+            serverError={panelError}
+            apiError={panelApiError}
+          />
+        )}
+      </SidePanel>
+
+      <SidePanel
+        open={panel?.kind === 'rec-create'}
+        title="Nueva recurrencia"
+        subtitle={
+          panel?.kind === 'rec-create'
+            ? `${panel.user.first_name} ${panel.user.last_name}`
+            : undefined
+        }
+        onClose={closePanel}
+      >
+        {panel?.kind === 'rec-create' && me?.academy && (
+          <RecurringForm
+            mode="create"
+            defaults={{
+              user: {
+                id: panel.user.id,
+                first_name: panel.user.first_name,
+                last_name: panel.user.last_name,
+              },
+              category: panel.category,
+              frequency:
+                panel.category === 'tuition' ? 'monthly' : 'annual',
+              description:
+                panel.category === 'tuition' ? 'Mensualidad' : 'Cuota anual',
+              billing_day:
+                panel.category === 'tuition'
+                  ? me.academy.default_billing_day ?? 1
+                  : 1,
+            }}
+            onSubmit={handleRecCreate}
+            onCancel={closePanel}
+            submitting={submitting}
+            serverError={panelError}
+            apiError={panelApiError}
+          />
+        )}
+      </SidePanel>
+
+      <SidePanel
+        open={panel?.kind === 'rec-edit'}
+        title="Editar recurrencia"
+        subtitle={
+          panel?.kind === 'rec-edit' ? panel.rec.description : undefined
+        }
+        onClose={closePanel}
+      >
+        {panel?.kind === 'rec-edit' && (
+          <RecurringForm
+            mode="edit"
+            recurring={panel.rec}
+            onSubmit={(payload) => handleRecEdit(panel.rec.id, payload)}
+            onCancel={closePanel}
+            submitting={submitting}
+            serverError={panelError}
+            apiError={panelApiError}
+          />
+        )}
       </SidePanel>
 
       <ConfirmModal

@@ -39,6 +39,46 @@ export type InstructorType = 'instructor' | 'assistant';
 
 export type EnrollmentStatus = 'active' | 'waiting' | 'completed' | 'cancelled';
 
+export type TransactionKind = 'sale' | 'expense';
+
+export type TransactionStatus = 'scheduled' | 'pending' | 'paid' | 'cancelled';
+
+export type TransactionCategory =
+  | 'tuition'
+  | 'enrollment_fee'
+  | 'material_sale'
+  | 'exam_fee'
+  | 'private_class'
+  | 'other_income'
+  | 'rent'
+  | 'utilities'
+  | 'salary'
+  | 'marketing'
+  | 'equipment'
+  | 'other_expense';
+
+export type TransactionFrequency =
+  | 'weekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'semester'
+  | 'annual'
+  | 'one_time';
+
+export type EnrollmentFeeMode =
+  | 'annual_recurring'
+  | 'one_time_on_signup'
+  | 'none';
+
+export type WeekendBillingBehavior =
+  | 'ignore'
+  | 'shift_previous'
+  | 'shift_next';
+
+export type Country = 'PR';
+
+export type Debt = 'any' | 'none' | 'tuition' | 'enrollment_fee';
+
 export interface UserSignUp {
   first_name: string;
   last_name: string;
@@ -62,13 +102,21 @@ export interface AcademyMe {
   id: number;
   name: string;
   type: AcademyType;
-  plan: AcademyPlan;
+  plan: AcademyPlan | null;
   default_instructor_hourly_rate: number | null;
   default_assistant_hourly_rate: number | null;
   currency: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   accent_color: string | null;
+  country: Country | null;
+  default_billing_day: number | null;
+  billing_lookahead_months: number | null;
+  auto_billing_enabled: boolean | null;
+  enrollment_fee_amount: number | null;
+  enrollment_fee_month: number | null;
+  enrollment_fee_mode: EnrollmentFeeMode | null;
+  weekend_billing_behavior: WeekendBillingBehavior | null;
 }
 
 export interface AcademyPublic {
@@ -79,6 +127,7 @@ export interface AcademyPublic {
 
 export interface UserMe {
   id: number;
+  role: UserRole;
   first_name: string;
   last_name: string;
   email: string | null;
@@ -101,6 +150,10 @@ export interface UserRead {
   status: UserStatus;
   is_active: boolean;
   academy: AcademyPublic;
+  pending_transactions: TransactionUserRead[];
+  debt_amount: number | null;
+  next_due_date: string | null;
+  next_due_amount: number | null;
 }
 
 export interface UserCreate {
@@ -155,8 +208,112 @@ export interface ListUsersParams {
   role: UserRole;
   status?: UserStatus | 'all';
   search?: string;
+  debt_filter?: Debt;
+  active?: boolean;
   skip?: number;
   limit?: number;
+}
+
+export interface TransactionUserRead {
+  id: number;
+  kind: TransactionKind;
+  category: TransactionCategory;
+  status: TransactionStatus;
+  description: string;
+  transaction_date: string;
+  amount: number;
+  period_start: string | null;
+  period_end: string | null;
+  recurring_id: number | null;
+  course_id: number | null;
+}
+
+export interface TransactionCreate {
+  kind: TransactionKind;
+  category: TransactionCategory;
+  status: TransactionStatus;
+  description: string;
+  transaction_date: string;
+  amount: number;
+  user_id: number | null;
+  external_name: string | null;
+  course_id: number | null;
+  period_start: string | null;
+  period_end: string | null;
+  paid_date: string | null;
+  payment_method: PaymentMethod | null;
+  recurring_id: number | null;
+  payment_reference: string | null;
+  payment_notes: string | null;
+}
+
+export type TransactionUpdate = TransactionCreate;
+
+export interface TransactionRead extends TransactionCreate {
+  id: number;
+  user: UserPublic | null;
+}
+
+export interface TransactionSummary {
+  total: number;
+  total_count: number;
+  paid: number;
+  pending: number;
+  pending_count: number;
+}
+
+export interface RecurringTransactionCreate {
+  kind: TransactionKind;
+  category: TransactionCategory;
+  description: string;
+  frequency: TransactionFrequency;
+  amount: number;
+  user_id: number | null;
+  external_name: string | null;
+  course_id: number | null;
+  billing_day: number | null;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+export type RecurringTransactionUpdate = RecurringTransactionCreate;
+
+export interface RecurringTransactionRead extends RecurringTransactionCreate {
+  id: number;
+  user: UserPublic | null;
+}
+
+export interface ListTransactionsParams {
+  kind?: TransactionKind;
+  status?: TransactionStatus;
+  category?: TransactionCategory;
+  payment_method?: PaymentMethod;
+  user_id?: number;
+  from_date?: string;
+  to_date?: string;
+  search?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface ListRecurringTransactionsParams {
+  kind?: TransactionKind;
+  category?: TransactionCategory;
+  frequency?: TransactionFrequency;
+  user_id?: number;
+  course_id?: number;
+  active?: boolean;
+  search?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface TransactionSummaryParams {
+  kind?: TransactionKind;
+  category?: TransactionCategory;
+  user_id?: number;
+  from_date?: string;
+  to_date?: string;
 }
 
 export interface CoursePublic {

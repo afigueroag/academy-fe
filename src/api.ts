@@ -9,8 +9,18 @@ import type {
   InviteToken,
   ListCoursesParams,
   ListEnrollmentsParams,
+  ListRecurringTransactionsParams,
+  ListTransactionsParams,
   ListUsersParams,
+  RecurringTransactionCreate,
+  RecurringTransactionRead,
+  RecurringTransactionUpdate,
   Token,
+  TransactionCreate,
+  TransactionRead,
+  TransactionSummary,
+  TransactionSummaryParams,
+  TransactionUpdate,
   UserCreate,
   UserInvite,
   UserMe,
@@ -152,6 +162,8 @@ export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
   q.set('role', params.role);
   if (params.status && params.status !== 'all') q.set('status', params.status);
   if (params.search) q.set('search', params.search);
+  if (params.debt_filter) q.set('debt_filter', params.debt_filter);
+  if (params.active !== undefined) q.set('active', String(params.active));
   if (params.skip !== undefined) q.set('skip', String(params.skip));
   if (params.limit !== undefined) q.set('limit', String(params.limit));
 
@@ -305,4 +317,139 @@ export async function deleteEnrollment(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as EnrollmentRead;
+}
+
+function txParams(params: ListTransactionsParams): string {
+  const q = new URLSearchParams();
+  if (params.kind) q.set('kind', params.kind);
+  if (params.status) q.set('status', params.status);
+  if (params.category) q.set('category', params.category);
+  if (params.payment_method) q.set('payment_method', params.payment_method);
+  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
+  if (params.from_date) q.set('from_date', params.from_date);
+  if (params.to_date) q.set('to_date', params.to_date);
+  if (params.search) q.set('search', params.search);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  return q.toString();
+}
+
+export async function getTransactionsSummary(
+  params: TransactionSummaryParams = {},
+): Promise<TransactionSummary> {
+  const q = new URLSearchParams();
+  if (params.kind) q.set('kind', params.kind);
+  if (params.category) q.set('category', params.category);
+  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
+  if (params.from_date) q.set('from_date', params.from_date);
+  if (params.to_date) q.set('to_date', params.to_date);
+  const qs = q.toString();
+  const res = await authFetch(`/transactions/summary${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionSummary;
+}
+
+export async function listTransactions(
+  params: ListTransactionsParams = {},
+): Promise<TransactionRead[]> {
+  const qs = txParams(params);
+  const res = await authFetch(`/transactions${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionRead[];
+}
+
+export async function getTransaction(id: number): Promise<TransactionRead> {
+  const res = await authFetch(`/transactions/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionRead;
+}
+
+export async function createTransaction(
+  payload: TransactionCreate,
+): Promise<TransactionRead> {
+  const res = await authFetch('/transactions', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionRead;
+}
+
+export async function updateTransaction(
+  id: number,
+  payload: TransactionUpdate,
+): Promise<TransactionRead> {
+  const res = await authFetch(`/transactions/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionRead;
+}
+
+export async function deleteTransaction(id: number): Promise<TransactionRead> {
+  const res = await authFetch(`/transactions/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as TransactionRead;
+}
+
+export async function listRecurringTransactions(
+  params: ListRecurringTransactionsParams = {},
+): Promise<RecurringTransactionRead[]> {
+  const q = new URLSearchParams();
+  if (params.kind) q.set('kind', params.kind);
+  if (params.category) q.set('category', params.category);
+  if (params.frequency) q.set('frequency', params.frequency);
+  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
+  if (params.course_id !== undefined)
+    q.set('course_id', String(params.course_id));
+  if (params.active !== undefined) q.set('active', String(params.active));
+  if (params.search) q.set('search', params.search);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(`/recurring-transactions${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RecurringTransactionRead[];
+}
+
+export async function getRecurringTransaction(
+  id: number,
+): Promise<RecurringTransactionRead> {
+  const res = await authFetch(`/recurring-transactions/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RecurringTransactionRead;
+}
+
+export async function createRecurringTransaction(
+  payload: RecurringTransactionCreate,
+): Promise<RecurringTransactionRead> {
+  const res = await authFetch('/recurring-transactions', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RecurringTransactionRead;
+}
+
+export async function updateRecurringTransaction(
+  id: number,
+  payload: RecurringTransactionUpdate,
+): Promise<RecurringTransactionRead> {
+  const res = await authFetch(`/recurring-transactions/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RecurringTransactionRead;
+}
+
+export async function deleteRecurringTransaction(
+  id: number,
+): Promise<RecurringTransactionRead> {
+  const res = await authFetch(`/recurring-transactions/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RecurringTransactionRead;
 }

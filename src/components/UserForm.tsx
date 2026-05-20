@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type {
+  AcademyMe,
   PaymentMethod,
   UserCreate,
   UserRead,
@@ -9,6 +10,33 @@ import type {
 } from '../types';
 import { ApiError } from '../api';
 import { SpinnerIcon } from '../brand';
+import { formatMoney, toCents } from '../utils/money';
+import { labelEnrollmentFeeMode } from '../utils/salesLabels';
+
+export interface StudentBillingSetup {
+  createTuition: boolean;
+  tuitionAmount: number | null;
+  tuitionBillingDay: number | null;
+  tuitionStartDate: string | null;
+  createEnrollment: boolean;
+}
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const MONTHS_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -70,7 +98,11 @@ const nullable = (s: string): string | null => {
 interface CreateProps {
   mode: 'create';
   role: UserRole;
-  onSubmit: (payload: UserCreate) => Promise<void>;
+  academy?: AcademyMe;
+  onSubmit: (
+    payload: UserCreate,
+    billing?: StudentBillingSetup,
+  ) => Promise<void>;
   onCancel: () => void;
   submitting: boolean;
   serverError: string | null;
@@ -90,12 +122,40 @@ interface EditProps {
 type UserFormProps = CreateProps | EditProps;
 
 export default function UserForm(props: UserFormProps) {
-  const { mode, onSubmit, onCancel, submitting, serverError, apiError } = props;
+  const { mode, onCancel, submitting, serverError, apiError } = props;
+
+  const isStudentCreate = mode === 'create' && props.role === 'student';
+  const academy: AcademyMe | undefined =
+    mode === 'create' ? props.academy : undefined;
+  const currency = academy?.currency ?? null;
+
+  const showEnrollmentBlock =
+    isStudentCreate &&
+    !!academy &&
+    !!academy.enrollment_fee_mode &&
+    academy.enrollment_fee_mode !== 'none' &&
+    !!academy.enrollment_fee_amount;
 
   const [state, setState] = useState<FormState>(() =>
     mode === 'edit' ? fromUser(props.user) : EMPTY,
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [billingOpen, setBillingOpen] = useState<boolean>(
+    () => !!(isStudentCreate && academy?.default_billing_day),
+  );
+  const [createTuition, setCreateTuition] = useState<boolean>(
+    () => !!(isStudentCreate && academy?.default_billing_day),
+  );
+  const [tuitionAmount, setTuitionAmount] = useState<string>('');
+  const [tuitionBillingDay, setTuitionBillingDay] = useState<string>(() =>
+    String(academy?.default_billing_day ?? 1),
+  );
+  const [tuitionStartDate, setTuitionStartDate] =
+    useState<string>(todayIso());
+  const [createEnrollment, setCreateEnrollment] = useState<boolean>(
+    () => showEnrollmentBlock,
+  );
 
   useEffect(() => {
     if (mode === 'edit') setState(fromUser(props.user));
@@ -125,6 +185,17 @@ export default function UserForm(props: UserFormProps) {
     if (mode === 'create' && state.email.trim() && !EMAIL_RE.test(state.email)) {
       next.email = 'Email inválido';
     }
+    if (isStudentCreate && createTuition) {
+      const amt = parseFloat(tuitionAmount);
+      if (!tuitionAmount || Number.isNaN(amt) || amt <= 0) {
+        next.tuition_amount = 'Monto mayor a cero';
+      }
+      const bd = parseInt(tuitionBillingDay, 10);
+      if (!tuitionBillingDay || Number.isNaN(bd) || bd < 1 || bd > 28) {
+        next.tuition_billing_day = 'Entre 1 y 28';
+      }
+      if (!tuitionStartDate) next.tuition_start_date = 'Requerido';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -146,7 +217,18 @@ export default function UserForm(props: UserFormProps) {
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
       };
-      await onSubmit(payload);
+      const billing: StudentBillingSetup | undefined = isStudentCreate
+        ? {
+            createTuition,
+            tuitionAmount: createTuition ? toCents(tuitionAmount) : null,
+            tuitionBillingDay: createTuition
+              ? parseInt(tuitionBillingDay, 10)
+              : null,
+            tuitionStartDate: createTuition ? tuitionStartDate : null,
+            createEnrollment: showEnrollmentBlock && createEnrollment,
+          }
+        : undefined;
+      await props.onSubmit(payload, billing);
     } else {
       const payload: UserUpdate = {
         first_name: state.first_name.trim(),
@@ -159,7 +241,7 @@ export default function UserForm(props: UserFormProps) {
         special_conditions: nullable(state.special_conditions),
         status: state.status as UserStatus,
       };
-      await onSubmit(payload);
+      await props.onSubmit(payload);
     }
   };
 
@@ -331,6 +413,160 @@ export default function UserForm(props: UserFormProps) {
             <option value="inactive">Inactivo</option>
           </select>
           <span className="field__error">{errors.status ?? ''}</span>
+        </div>
+      )}
+
+      {isStudentCreate && academy && (
+        <div className="collapsible" style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            className="collapsible__header"
+            onClick={() => setBillingOpen((v) => !v)}
+            aria-expanded={billingOpen}
+          >
+            Configuración de cobros
+            <span aria-hidden="true">{billingOpen ? '−' : '+'}</span>
+          </button>
+          <div
+            className={
+              'collapsible__body' + (billingOpen ? '' : ' collapsible__body--hidden')
+            }
+          >
+            <div className="switch-row">
+              <div>
+                <div className="switch-row__label">Crear cobro mensual</div>
+                <div className="switch-row__hint">
+                  Mensualidad recurrente para este estudiante.
+                </div>
+              </div>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={createTuition}
+                  onChange={(e) => setCreateTuition(e.target.checked)}
+                />
+                <span className="switch__track" aria-hidden="true" />
+                <span className="switch__thumb" aria-hidden="true" />
+              </label>
+            </div>
+
+            {createTuition && (
+              <>
+                <div className="field">
+                  <label className="field__label" htmlFor="uf-tuition-amount">
+                    Monto mensual{' '}
+                    <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    id="uf-tuition-amount"
+                    className="input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={tuitionAmount}
+                    onChange={(e) => setTuitionAmount(e.target.value)}
+                    aria-invalid={!!errors.tuition_amount}
+                    placeholder="0.00"
+                  />
+                  <span className="field__error">
+                    {errors.tuition_amount ?? ''}
+                  </span>
+                </div>
+
+                <div className="field--row">
+                  <div className="field">
+                    <label
+                      className="field__label"
+                      htmlFor="uf-tuition-bday"
+                    >
+                      Día de cobro{' '}
+                      <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <input
+                      id="uf-tuition-bday"
+                      className="input"
+                      type="number"
+                      min="1"
+                      max="28"
+                      value={tuitionBillingDay}
+                      onChange={(e) => setTuitionBillingDay(e.target.value)}
+                      aria-invalid={!!errors.tuition_billing_day}
+                    />
+                    <span className="field__error">
+                      {errors.tuition_billing_day ?? ''}
+                    </span>
+                  </div>
+
+                  <div className="field">
+                    <label
+                      className="field__label"
+                      htmlFor="uf-tuition-start"
+                    >
+                      Fecha de inicio{' '}
+                      <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
+                    <input
+                      id="uf-tuition-start"
+                      className="input"
+                      type="date"
+                      value={tuitionStartDate}
+                      onChange={(e) => setTuitionStartDate(e.target.value)}
+                      aria-invalid={!!errors.tuition_start_date}
+                    />
+                    <span className="field__error">
+                      {errors.tuition_start_date ?? ''}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {showEnrollmentBlock && academy.enrollment_fee_mode && (
+              <>
+                <div
+                  className="switch-row"
+                  style={{ borderTop: '1px solid var(--color-border)' }}
+                >
+                  <div>
+                    <div className="switch-row__label">Cobrar inscripción</div>
+                    <div className="switch-row__hint">
+                      {labelEnrollmentFeeMode(academy.enrollment_fee_mode)}
+                    </div>
+                  </div>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={createEnrollment}
+                      onChange={(e) => setCreateEnrollment(e.target.checked)}
+                    />
+                    <span className="switch__track" aria-hidden="true" />
+                    <span className="switch__thumb" aria-hidden="true" />
+                  </label>
+                </div>
+
+                {createEnrollment && (
+                  <p
+                    className="field__hint"
+                    style={{ marginTop: 8, color: 'var(--color-text-muted)' }}
+                  >
+                    {academy.enrollment_fee_mode === 'annual_recurring'
+                      ? `Cuota anual de ${formatMoney(
+                          academy.enrollment_fee_amount,
+                          currency,
+                        )} cada ${
+                          academy.enrollment_fee_month
+                            ? MONTHS_ES[academy.enrollment_fee_month - 1]
+                            : '—'
+                        }.`
+                      : `Cobro único de ${formatMoney(
+                          academy.enrollment_fee_amount,
+                          currency,
+                        )} al inscribir.`}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 

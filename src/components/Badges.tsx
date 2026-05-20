@@ -1,4 +1,4 @@
-import type { CourseStatus, UserStatus } from '../types';
+import type { CourseStatus, TransactionStatus, UserStatus } from '../types';
 
 const USER_LABEL: Record<UserStatus, string> = {
   pending: 'Pendiente',
@@ -20,5 +20,20 @@ export function CourseStatusBadge({ status }: { status: CourseStatus | null }) {
   const s: CourseStatus = status ?? 'active';
   return (
     <span className={`badge badge--course-${s}`}>{COURSE_LABEL[s]}</span>
+  );
+}
+
+const TRANSACTION_LABEL: Record<TransactionStatus, string> = {
+  scheduled: 'Programada',
+  pending: 'Pendiente',
+  paid: 'Pagada',
+  cancelled: 'Cancelada',
+};
+
+export function TransactionStatusBadge({ status }: { status: TransactionStatus }) {
+  return (
+    <span className={`badge badge--tx-${status}`}>
+      {TRANSACTION_LABEL[status]}
+    </span>
   );
 }

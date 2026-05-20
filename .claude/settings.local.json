@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm src/components/StatusBadge.tsx src/components/CourseStatusBadge.tsx src/components/EnrollmentStatusBadge.tsx && ls src/components/)"
+      "Bash(rm src/components/StatusBadge.tsx src/components/CourseStatusBadge.tsx src/components/EnrollmentStatusBadge.tsx && ls src/components/)",
+      "Bash(node -e \"const j=require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(j.components.schemas.Debt, null, 2\\)\\);\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\afigu\\repos\\academy-fe\\src\\components"

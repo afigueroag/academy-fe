@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../auth';
 import {
   CalendarIcon,
+  DollarIcon,
   GraduationIcon,
   Logo,
   LogoutIcon,
@@ -63,6 +64,17 @@ export default function Layout({ title, actions, children }: LayoutProps) {
             <CalendarIcon size={18} />
             <span>Clases</span>
           </NavLink>
+          {(me?.role === 'admin' || me?.role === 'receptionist') && (
+            <NavLink
+              to="/ventas"
+              className={({ isActive }) =>
+                'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+              }
+            >
+              <DollarIcon size={18} />
+              <span>Ventas</span>
+            </NavLink>
+          )}
         </nav>
 
         <div className="sidebar__user">

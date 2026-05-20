@@ -460,6 +460,25 @@ export function WarningIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function DollarIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 V21" />
+      <path d="M17 7 C 17 5, 15 4, 12 4 C 9 4, 7 5.5, 7 8 C 7 10.5, 9 11.2, 12 12 C 15 12.8, 17 13.5, 17 16 C 17 18.5, 15 20, 12 20 C 9 20, 7 19, 7 17" />
+    </svg>
+  );
+}
+
 export function LogoutIcon({ size = 16 }: IconProps) {
   return (
     <svg

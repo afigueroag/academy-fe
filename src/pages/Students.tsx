@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import UsersModule from './UsersModule';
+import type { Debt } from '../types';
 
 export default function Students() {
+  const [debtFilter, setDebtFilter] = useState<Debt | null>(null);
+
   return (
     <UsersModule
       role="student"
@@ -12,6 +16,9 @@ export default function Students() {
       createTitle="Crear Estudiante"
       editTitle="Editar Estudiante"
       viewTitle="Detalles del Estudiante"
+      showDebtColumns
+      debtFilter={debtFilter}
+      onDebtFilterChange={setDebtFilter}
     />
   );
 }

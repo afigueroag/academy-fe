@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Students from './pages/Students';
 import Instructors from './pages/Instructors';
 import Classes from './pages/Classes';
+import Sales from './pages/Sales';
 import Invite from './pages/Invite';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
       <Route path="/invite" element={<Invite />} />
       <Route path="/students" element={<Students />} />
       <Route path="/instructors" element={<Instructors />} />
+      <Route path="/ventas" element={<Sales />} />
       <Route path="/classes" element={<Classes />} />
       <Route path="*" element={<Navigate to="/students" replace />} />
     </Routes>
