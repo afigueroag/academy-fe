@@ -5,8 +5,10 @@ import {
   CalendarIcon,
   DollarIcon,
   GraduationIcon,
+  HomeIcon,
   Logo,
   LogoutIcon,
+  SettingsIcon,
   UsersIcon,
 } from '../brand';
 
@@ -37,43 +39,77 @@ export default function Layout({ title, actions, children }: LayoutProps) {
         </div>
 
         <nav className="sidebar__nav" aria-label="Navegación principal">
-          <NavLink
-            to="/students"
-            className={({ isActive }) =>
-              'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
-            }
-          >
-            <GraduationIcon size={18} />
-            <span>Estudiantes</span>
-          </NavLink>
-          <NavLink
-            to="/instructors"
-            className={({ isActive }) =>
-              'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
-            }
-          >
-            <UsersIcon size={18} />
-            <span>Instructores</span>
-          </NavLink>
-          <NavLink
-            to="/classes"
-            className={({ isActive }) =>
-              'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
-            }
-          >
-            <CalendarIcon size={18} />
-            <span>Clases</span>
-          </NavLink>
-          {(me?.role === 'admin' || me?.role === 'receptionist') && (
-            <NavLink
-              to="/ventas"
-              className={({ isActive }) =>
-                'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
-              }
-            >
-              <DollarIcon size={18} />
-              <span>Ventas</span>
-            </NavLink>
+          {me?.role === 'student' ? (
+            <>
+              <NavLink
+                to="/inicio"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <HomeIcon size={18} />
+                <span>Inicio</span>
+              </NavLink>
+              <NavLink
+                to="/clases"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <GraduationIcon size={18} />
+                <span>Clases</span>
+              </NavLink>
+              <NavLink
+                to="/configuracion"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <SettingsIcon size={18} />
+                <span>Configuración</span>
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/students"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <GraduationIcon size={18} />
+                <span>Estudiantes</span>
+              </NavLink>
+              <NavLink
+                to="/instructors"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <UsersIcon size={18} />
+                <span>Instructores</span>
+              </NavLink>
+              <NavLink
+                to="/classes"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <CalendarIcon size={18} />
+                <span>Clases</span>
+              </NavLink>
+              {(me?.role === 'admin' || me?.role === 'receptionist') && (
+                <NavLink
+                  to="/ventas"
+                  className={({ isActive }) =>
+                    'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                  }
+                >
+                  <DollarIcon size={18} />
+                  <span>Ventas</span>
+                </NavLink>
+              )}
+            </>
           )}
         </nav>
 

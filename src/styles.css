@@ -263,6 +263,8 @@ button {
   border: 1px solid transparent;
   font-weight: 600;
   font-size: 15px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: transform 0.05s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
 }
 
@@ -1048,7 +1050,7 @@ button {
   top: 0;
   right: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: 620px;
   height: 100vh;
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
@@ -1159,10 +1161,28 @@ button {
   gap: 14px;
 }
 
+.detail-list--cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 14px;
+}
+
+@media (max-width: 540px) {
+  .detail-list--cols {
+    grid-template-columns: 1fr;
+  }
+}
+
 .detail-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+}
+
+.detail-item--full {
+  grid-column: 1 / -1;
 }
 
 .detail-item__label {
@@ -2432,4 +2452,413 @@ button {
 
 .table-cell--nowrap {
   white-space: nowrap;
+}
+
+/* ---------- Attendance ---------- */
+
+.attendance-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.attendance-section__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.attendance-section__count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attendance-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attendance-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.attendance-row__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.attendance-row__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.status-toggle-group {
+  display: inline-flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+
+.status-toggle-group__item {
+  background: transparent;
+  border: none;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  min-width: 28px;
+}
+
+.status-toggle-group__item:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+.status-toggle-group__item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-toggle-group__item--present.is-active {
+  background: color-mix(in srgb, #16a34a 16%, white);
+  color: #15803d;
+}
+
+.status-toggle-group__item--absent.is-active {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.status-toggle-group__item--excused.is-active {
+  background: color-mix(in srgb, #d97706 16%, white);
+  color: #b45309;
+}
+
+.attendance-add-staff {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.attendance-add-staff__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.attendance-add-staff__label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.session-row:last-child {
+  border-bottom: none;
+}
+
+.session-row__when {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.session-row__when-date {
+  font-weight: 600;
+}
+
+.session-row__when-time {
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
+.session-row__status {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.session-row__status--taken {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* ---------- Student home ---------- */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  min-width: 0;
+}
+
+.home-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.home-card__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.next-session-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.next-session-card__course {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.next-session-card__when {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.summary-card__value--empty {
+  font-size: 18px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* ---------- Payment row (student) ---------- */
+
+.payment-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.payment-row:last-child {
+  border-bottom: none;
+}
+
+.payment-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-row__desc {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.payment-row__category {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text);
+}
+
+.payment-row__amount {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* ---------- CTA Explorar clases ---------- */
+
+.cta-explore {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)),
+    color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface))
+  );
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  align-items: flex-start;
+}
+
+.cta-explore__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.cta-explore__text {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 6px;
+}
+
+/* ---------- Course card (catálogo estudiante) ---------- */
+
+.course-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.course-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  gap: 10px;
+  min-width: 0;
+}
+
+.course-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.course-card__name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.course-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex: 1;
+}
+
+.course-card__cost {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-top: 4px;
+}
+
+.course-card__footer {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.course-card__footer .btn {
+  flex: 1;
+}
+
+/* ---------- Configuración (estudiante) ---------- */
+
+.config-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
+.config-section:last-child {
+  margin-bottom: 0;
+}
+
+.config-section .form-section {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
 }

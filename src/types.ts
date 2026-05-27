@@ -75,9 +75,9 @@ export type WeekendBillingBehavior =
   | 'shift_previous'
   | 'shift_next';
 
-export type Country = 'PR';
-
 export type Debt = 'any' | 'none' | 'tuition' | 'enrollment_fee';
+
+export type CourseStudentStatusFilter = 'enrolled' | 'available';
 
 export interface UserSignUp {
   first_name: string;
@@ -105,11 +105,13 @@ export interface AcademyMe {
   plan: AcademyPlan | null;
   default_instructor_hourly_rate: number | null;
   default_assistant_hourly_rate: number | null;
+  students_self_unenroll: boolean | null;
   currency: string | null;
   primary_color: string | null;
   secondary_color: string | null;
   accent_color: string | null;
-  country: Country | null;
+  country: string;
+  timezone: string;
   default_billing_day: number | null;
   billing_lookahead_months: number | null;
   auto_billing_enabled: boolean | null;
@@ -134,6 +136,10 @@ export interface UserMe {
   status: UserStatus;
   is_active: boolean;
   academy: AcademyMe;
+  pending_transactions: TransactionUserRead[];
+  debt_amount: number | null;
+  next_due_date: string | null;
+  next_due_amount: number | null;
 }
 
 export interface UserRead {
@@ -197,6 +203,11 @@ export interface UserPublic {
 export interface UserPassword {
   email: string;
   password: string;
+}
+
+export interface PasswordChange {
+  current_password: string;
+  new_password: string;
 }
 
 export interface InviteToken {
@@ -327,6 +338,13 @@ export interface ScheduleCreate {
   schedule_time: string;
 }
 
+export interface Schedule {
+  id: number | null;
+  schedule_day: ScheduleDay;
+  schedule_time: string;
+  course_id: number;
+}
+
 export interface CourseInstructorLinkCreate {
   instructor_id: number;
   type: InstructorType;
@@ -339,6 +357,11 @@ export interface CourseInstructorLinkRead {
   instructor_id: number;
   type: InstructorType;
   hourly_rate: number | null;
+  instructor: UserPublic;
+}
+
+export interface CourseInstructorLinkPublic {
+  type: InstructorType;
   instructor: UserPublic;
 }
 
@@ -375,6 +398,22 @@ export interface CourseCreate {
 
 export type CourseUpdate = CourseCreate;
 
+export interface CourseStudentRead {
+  id: number;
+  name: string;
+  description: string | null;
+  status: CourseStatus;
+  recurrence: CourseRecurrence;
+  duration_minutes: number;
+  individual_cost: number | null;
+  location: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  schedules: Schedule[];
+  instructor_links: CourseInstructorLinkPublic[];
+  has_capacity: boolean;
+}
+
 export interface ListCoursesParams {
   status?: CourseStatus | 'all';
   instructor?: string;
@@ -397,9 +436,8 @@ export interface EnrollmentUpdate {
 export interface EnrollmentRead {
   status: EnrollmentStatus | null;
   completion_date: string | null;
-  course: CoursePublic;
+  course: CourseRead;
   student: UserPublic;
-  academy: AcademyPublic;
   waiting_position: number | null;
   waitlisted_at: string | null;
 }
@@ -420,4 +458,99 @@ export interface ValidationError {
 
 export interface HTTPValidationError {
   detail: ValidationError[];
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'excused';
+
+export type AttendanceRole = 'student' | 'instructor' | 'assistant';
+
+export interface AttendanceCreate {
+  scheduled_datetime: string;
+  course_id: number;
+  user_id: number;
+  status: AttendanceStatus;
+  attendance_role: AttendanceRole;
+}
+
+export interface AttendanceUpdate {
+  status: AttendanceStatus;
+  attendance_role: AttendanceRole;
+}
+
+export interface AttendanceRead {
+  scheduled_datetime: string;
+  course_id: number;
+  user_id: number;
+  status: AttendanceStatus;
+  attendance_role: AttendanceRole;
+  user: UserPublic;
+  course: CoursePublic;
+  created_at: string;
+  created_by: UserPublic;
+  updated_at: string;
+}
+
+export interface SessionCreate {
+  scheduled_datetime: string;
+  course_id: number;
+}
+
+export interface ListAttendanceParams {
+  course_id?: number;
+  user_id?: number;
+  from_date?: string;
+  to_date?: string;
+  attendance_role?: AttendanceRole;
+  status?: AttendanceStatus;
+  skip?: number;
+  limit?: number;
+}
+
+export interface CoursePmtRead {
+  course_id: number;
+  course_name: string;
+  attendance_role: AttendanceRole;
+  sessions: number;
+  minutes: number;
+  hours: number;
+  hourly_rate: number;
+  payment: number;
+}
+
+export interface InstructorPmtRead {
+  total_minutes: number;
+  total_hours: number;
+  total_payment: number;
+  by_course: CoursePmtRead[];
+}
+
+export interface InstructorPmtParams {
+  from_date?: string;
+  to_date?: string;
+}
+
+export interface ActiveSessionRead {
+  scheduled_datetime: string | null;
+  is_in_window: boolean;
+}
+
+export interface AttendanceMe {
+  pct_last_12: number;
+  present: number;
+  absent: number;
+  total: number;
+}
+
+export interface NextSessionMe {
+  course: CourseRead;
+  datetime: string;
+}
+
+export interface HomeMe {
+  user: UserRead;
+  enrolled_courses: CourseRead[];
+  pending_transactions: TransactionRead[];
+  scheduled_transactions: TransactionRead[];
+  attendance_summary: AttendanceMe | null;
+  next_session: NextSessionMe | null;
 }

@@ -1,8 +1,7 @@
-import type { CourseRead, ScheduleDay } from '../types';
+import type { ReactNode } from 'react';
+import type { CourseStudentRead, ScheduleDay } from '../types';
 import { formatMoney } from '../utils/money';
 import { CourseStatusBadge } from './Badges';
-import EnrollmentSection from './EnrollmentSection';
-import SessionsSection from './SessionsSection';
 
 const DAY_LABEL: Record<ScheduleDay, string> = {
   monday: 'Lunes',
@@ -45,7 +44,7 @@ function Item({
   value,
 }: {
   label: string;
-  value: string | null | React.ReactNode;
+  value: string | null | ReactNode;
 }) {
   const isEmpty =
     value === null || value === undefined || value === '' || value === '—';
@@ -63,34 +62,20 @@ function Item({
   );
 }
 
-interface CourseDetailsProps {
-  course: CourseRead;
-  enrollmentCount: number | null;
+interface StudentCourseDetailProps {
+  course: CourseStudentRead;
   currency: string | null;
-  allCourses: CourseRead[];
-  onCountsChanged?: () => void;
-  attendanceVersion?: number;
-  onOpenAttendance?: (datetime: string) => void;
 }
 
-export default function CourseDetails({
+export default function StudentCourseDetail({
   course,
-  enrollmentCount,
   currency,
-  allCourses,
-  onCountsChanged,
-  attendanceVersion,
-  onOpenAttendance,
-}: CourseDetailsProps) {
+}: StudentCourseDetailProps) {
   const recurrenceLabel =
     course.recurrence === 'one_time' ? 'Sesión única' : 'Semanal';
 
-  const capacityValue = (() => {
-    const max = course.max_students;
-    if (enrollmentCount === null && max === null) return null;
-    if (max === null) return `${enrollmentCount ?? 0}`;
-    return `${enrollmentCount ?? 0} / ${max}`;
-  })();
+  const showCost =
+    course.individual_cost !== null && course.individual_cost > 0;
 
   return (
     <div>
@@ -111,7 +96,10 @@ export default function CourseDetails({
       <section className="form-section">
         <h3 className="form-section__title">Programación</h3>
         <div className="detail-list">
-          <Item label="Duración" value={formatDuration(course.duration_minutes)} />
+          <Item
+            label="Duración"
+            value={formatDuration(course.duration_minutes)}
+          />
           <Item label="Fecha de inicio" value={formatDate(course.start_date)} />
           {course.recurrence !== 'one_time' && (
             <Item label="Fecha de fin" value={formatDate(course.end_date)} />
@@ -122,7 +110,7 @@ export default function CourseDetails({
               course.schedules.length === 0 ? null : (
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {course.schedules.map((s, i) => (
-                    <li key={i}>
+                    <li key={s.id ?? i}>
                       {DAY_LABEL[s.schedule_day]} · {formatTime(s.schedule_time)}
                     </li>
                   ))}
@@ -133,26 +121,17 @@ export default function CourseDetails({
         </div>
       </section>
 
-      <section className="form-section">
-        <h3 className="form-section__title">Capacidad y costo</h3>
-        <div className="detail-list">
-          <Item label="Inscritos / Cupo" value={capacityValue} />
-          <Item
-            label="Costo individual"
-            value={
-              course.individual_cost !== null
-                ? formatMoney(course.individual_cost, currency)
-                : null
-            }
-          />
-        </div>
-      </section>
-
-      <EnrollmentSection
-        course={course}
-        allCourses={allCourses}
-        onCountsChanged={onCountsChanged}
-      />
+      {showCost && (
+        <section className="form-section">
+          <h3 className="form-section__title">Costo</h3>
+          <div className="detail-list">
+            <Item
+              label="Costo individual"
+              value={formatMoney(course.individual_cost as number, currency)}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="form-section">
         <h3 className="form-section__title">Instructores</h3>
@@ -165,13 +144,13 @@ export default function CourseDetails({
           </p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {course.instructor_links.map((link) => {
+            {course.instructor_links.map((link, i) => {
               const name = `${link.instructor.first_name} ${link.instructor.last_name}`;
               const typeLabel =
                 link.type === 'instructor' ? 'Instructor' : 'Asistente';
               return (
                 <li
-                  key={link.id}
+                  key={`${link.instructor.id}-${i}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -204,8 +183,6 @@ export default function CourseDetails({
                       }}
                     >
                       {typeLabel}
-                      {link.hourly_rate !== null &&
-                        ` · ${formatMoney(link.hourly_rate, currency)}/h`}
                     </div>
                   </div>
                 </li>
@@ -214,12 +191,6 @@ export default function CourseDetails({
           </ul>
         )}
       </section>
-
-      <SessionsSection
-        course={course}
-        refreshKey={attendanceVersion}
-        onOpenAttendance={onOpenAttendance}
-      />
     </div>
   );
 }

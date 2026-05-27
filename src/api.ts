@@ -1,20 +1,31 @@
 import type {
+  ActiveSessionRead,
+  AttendanceCreate,
+  AttendanceRead,
+  AttendanceUpdate,
   CourseCreate,
   CourseRead,
+  CourseStudentRead,
   CourseUpdate,
   EnrollmentCreate,
   EnrollmentRead,
   EnrollmentUpdate,
+  HomeMe,
   HTTPValidationError,
+  InstructorPmtParams,
+  InstructorPmtRead,
   InviteToken,
+  ListAttendanceParams,
   ListCoursesParams,
   ListEnrollmentsParams,
   ListRecurringTransactionsParams,
   ListTransactionsParams,
   ListUsersParams,
+  PasswordChange,
   RecurringTransactionCreate,
   RecurringTransactionRead,
   RecurringTransactionUpdate,
+  SessionCreate,
   Token,
   TransactionCreate,
   TransactionRead,
@@ -157,6 +168,17 @@ export async function getMe(): Promise<UserMe> {
   return (await res.json()) as UserMe;
 }
 
+export async function getMeHome(): Promise<HomeMe> {
+  const res = await authFetch('/me/home');
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as HomeMe;
+}
+
+export async function changeMyPassword(payload: PasswordChange): Promise<void> {
+  const res = await authFetch('/me/password', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+}
+
 export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
   const q = new URLSearchParams();
   q.set('role', params.role);
@@ -241,6 +263,18 @@ export async function listCourses(
   return (await res.json()) as CourseRead[];
 }
 
+export async function listStudentCourses(
+  params: { search?: string } = {},
+): Promise<CourseStudentRead[]> {
+  const q = new URLSearchParams();
+  q.set('active', 'true');
+  q.set('status', 'active');
+  if (params.search) q.set('search', params.search);
+  const res = await authFetch(`/courses?${q.toString()}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseStudentRead[];
+}
+
 export async function getCourse(id: number): Promise<CourseRead> {
   const res = await authFetch(`/courses/${id}`);
   if (!res.ok) throw await parseError(res);
@@ -293,6 +327,20 @@ export async function createEnrollment(
   const res = await authFetch('/enrollments', { method: 'POST', body: payload });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as EnrollmentRead;
+}
+
+export async function enrollMe(
+  course_id: number,
+  student_id: number,
+): Promise<EnrollmentRead> {
+  return createEnrollment({ course_id, student_id });
+}
+
+export async function unenrollMe(
+  course_id: number,
+  student_id: number,
+): Promise<EnrollmentRead> {
+  return deleteEnrollment(course_id, student_id);
 }
 
 export async function updateEnrollment(
@@ -452,4 +500,93 @@ export async function deleteRecurringTransaction(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as RecurringTransactionRead;
+}
+
+export async function listAttendance(
+  params: ListAttendanceParams = {},
+): Promise<AttendanceRead[]> {
+  const q = new URLSearchParams();
+  if (params.course_id !== undefined)
+    q.set('course_id', String(params.course_id));
+  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
+  if (params.from_date) q.set('from_date', params.from_date);
+  if (params.to_date) q.set('to_date', params.to_date);
+  if (params.attendance_role) q.set('attendance_role', params.attendance_role);
+  if (params.status) q.set('status', params.status);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+
+  const qs = q.toString();
+  const res = await authFetch(`/attendance${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AttendanceRead[];
+}
+
+export async function createAttendance(
+  payload: AttendanceCreate,
+): Promise<AttendanceRead> {
+  const res = await authFetch('/attendance', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AttendanceRead;
+}
+
+export async function updateAttendance(
+  course_id: number,
+  user_id: number,
+  scheduled_datetime: string,
+  payload: AttendanceUpdate,
+): Promise<AttendanceRead> {
+  const dt = encodeURIComponent(scheduled_datetime);
+  const res = await authFetch(`/attendance/${course_id}/${user_id}/${dt}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AttendanceRead;
+}
+
+export async function deleteAttendance(
+  course_id: number,
+  user_id: number,
+  scheduled_datetime: string,
+): Promise<void> {
+  const dt = encodeURIComponent(scheduled_datetime);
+  const res = await authFetch(`/attendance/${course_id}/${user_id}/${dt}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
+export async function openAttendanceSession(
+  payload: SessionCreate,
+): Promise<AttendanceRead[]> {
+  const res = await authFetch('/attendance/sessions', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AttendanceRead[];
+}
+
+export async function getActiveSession(
+  course_id: number,
+): Promise<ActiveSessionRead> {
+  const res = await authFetch(`/courses/${course_id}/active-session`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as ActiveSessionRead;
+}
+
+export async function getInstructorPmt(
+  user_id: number,
+  params: InstructorPmtParams = {},
+): Promise<InstructorPmtRead> {
+  const q = new URLSearchParams();
+  if (params.from_date) q.set('from_date', params.from_date);
+  if (params.to_date) q.set('to_date', params.to_date);
+  const qs = q.toString();
+  const res = await authFetch(
+    `/users/${user_id}/instructor-pmt${qs ? `?${qs}` : ''}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as InstructorPmtRead;
 }

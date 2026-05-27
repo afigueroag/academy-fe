@@ -10,6 +10,8 @@ import type {
 import { StatusBadge, TransactionStatusBadge } from './Badges';
 import { CheckIcon, PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../brand';
 import ConfirmModal from './ConfirmModal';
+import InstructorPaySection from './InstructorPaySection';
+import StudentAttendanceSection from './StudentAttendanceSection';
 import {
   ApiError,
   deleteRecurringTransaction,
@@ -55,14 +57,16 @@ function formatDateShort(value: string | null): string {
 function Item({
   label,
   value,
+  full,
 }: {
   label: string;
   value: string | null | React.ReactNode;
+  full?: boolean;
 }) {
   const isEmpty =
     value === null || value === undefined || value === '' || value === '—';
   return (
-    <div className="detail-item">
+    <div className={'detail-item' + (full ? ' detail-item--full' : '')}>
       <span className="detail-item__label">{label}</span>
       <span
         className={
@@ -95,6 +99,7 @@ export default function UserDetails({
   onRefresh,
 }: UserDetailsProps) {
   const isStudent = role === 'student';
+  const isInstructor = role === 'instructor';
   const currency = academy?.currency ?? null;
 
   const [recurringList, setRecurringList] = useState<
@@ -172,15 +177,15 @@ export default function UserDetails({
 
   return (
     <div>
-      <div className="detail-list">
+      <div className="detail-list detail-list--cols">
         <Item
           label="Nombre completo"
           value={`${user.first_name} ${user.last_name}`}
+          full
         />
         <Item label="Email" value={user.email} />
         <Item label="Estado" value={<StatusBadge status={user.status} />} />
         <Item label="Teléfono" value={user.phone} />
-        <Item label="Dirección" value={user.address} />
         <Item
           label="Fecha de nacimiento"
           value={formatDate(user.date_of_birth)}
@@ -192,7 +197,12 @@ export default function UserDetails({
             user.payment_method ? PAYMENT_LABELS[user.payment_method] : null
           }
         />
-        <Item label="Condiciones especiales" value={user.special_conditions} />
+        <Item label="Dirección" value={user.address} full />
+        <Item
+          label="Condiciones especiales"
+          value={user.special_conditions}
+          full
+        />
         {isStudent && (
           <>
             <Item
@@ -409,7 +419,13 @@ export default function UserDetails({
               </div>
             )}
           </section>
+
+          <StudentAttendanceSection studentId={user.id} />
         </>
+      )}
+
+      {isInstructor && (
+        <InstructorPaySection instructorId={user.id} currency={currency} />
       )}
 
       <ConfirmModal

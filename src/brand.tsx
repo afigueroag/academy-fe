@@ -479,6 +479,44 @@ export function DollarIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function HomeIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 11 L12 3 L21 11" />
+      <path d="M5 10 V20 H10 V14 H14 V20 H19 V10" />
+    </svg>
+  );
+}
+
+export function SettingsIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15 A1.65 1.65 0 0 0 19.7 16.8 L19.8 16.9 A2 2 0 1 1 17 19.7 L16.9 19.6 A1.65 1.65 0 0 0 15 19.3 A1.65 1.65 0 0 0 14 20.8 V21 A2 2 0 1 1 10 21 V20.9 A1.65 1.65 0 0 0 9 19.4 A1.65 1.65 0 0 0 7.2 19.7 L7.1 19.8 A2 2 0 1 1 4.3 17 L4.4 16.9 A1.65 1.65 0 0 0 4.7 15 A1.65 1.65 0 0 0 3.2 14 H3 A2 2 0 1 1 3 10 H3.1 A1.65 1.65 0 0 0 4.6 9 A1.65 1.65 0 0 0 4.3 7.2 L4.2 7.1 A2 2 0 1 1 7 4.3 L7.1 4.4 A1.65 1.65 0 0 0 9 4.7 A1.65 1.65 0 0 0 10 3.2 V3 A2 2 0 1 1 14 3 V3.1 A1.65 1.65 0 0 0 15 4.6 A1.65 1.65 0 0 0 16.8 4.3 L16.9 4.2 A2 2 0 1 1 19.7 7 L19.6 7.1 A1.65 1.65 0 0 0 19.3 9 A1.65 1.65 0 0 0 20.8 10 H21 A2 2 0 1 1 21 14 H20.9 A1.65 1.65 0 0 0 19.4 15 Z" />
+    </svg>
+  );
+}
+
 export function LogoutIcon({ size = 16 }: IconProps) {
   return (
     <svg

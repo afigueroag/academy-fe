@@ -8,6 +8,7 @@ import {
 } from '../brand';
 import { ApiError, clearToken, getMe, login, setToken } from '../api';
 import { useAuth } from '../auth';
+import { homePathForRole } from '../routing';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -52,7 +53,7 @@ export default function Login() {
       try {
         const me = await getMe();
         setMe(me);
-        navigate('/students', { replace: true });
+        navigate(homePathForRole(me.role), { replace: true });
       } catch {
         clearToken();
         setServerError(

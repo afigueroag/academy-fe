@@ -14,18 +14,25 @@ import {
   ApiError,
   createCourse,
   deleteCourse,
+  getActiveSession,
   getToken,
   listCourses,
   listEnrollments,
   updateCourse,
 } from '../api';
 import type {
+  ActiveSessionRead,
   CourseCreate,
   CourseRead,
   CourseStatus,
   CourseUpdate,
   ScheduleDay,
 } from '../types';
+import AttendanceSheet from '../components/AttendanceSheet';
+import {
+  formatSessionCompact,
+  isValidScheduledDatetime,
+} from '../utils/sessions';
 import {
   CalendarIcon,
   EyeIcon,
@@ -131,6 +138,16 @@ export default function Classes() {
   const [toDelete, setToDelete] = useState<CourseRead | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [activeSession, setActiveSession] = useState<ActiveSessionRead | null>(
+    null,
+  );
+  const [activeSessionLoading, setActiveSessionLoading] = useState(false);
+  const [attendanceTarget, setAttendanceTarget] = useState<{
+    course: CourseRead;
+    datetime: string;
+  } | null>(null);
+  const [attendanceVersion, setAttendanceVersion] = useState(0);
+
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
@@ -144,6 +161,29 @@ export default function Classes() {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(t);
   }, [search]);
+
+  const viewCourseId = panel?.kind === 'view' ? panel.course.id : null;
+  useEffect(() => {
+    if (!viewCourseId) {
+      setActiveSession(null);
+      return;
+    }
+    let cancelled = false;
+    setActiveSessionLoading(true);
+    getActiveSession(viewCourseId)
+      .then((data) => {
+        if (!cancelled) setActiveSession(data);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveSession(null);
+      })
+      .finally(() => {
+        if (!cancelled) setActiveSessionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewCourseId]);
 
   useEffect(() => {
     const t = window.setTimeout(
@@ -665,24 +705,79 @@ export default function Classes() {
         onClose={closePanel}
         footer={
           panel?.kind === 'view' ? (
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => setToDelete(panel.course)}
-              >
-                <TrashIcon size={14} />
-                Eliminar
-              </button>
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => panel.kind === 'view' && openEdit(panel.course)}
-              >
-                <PencilIcon size={14} />
-                Editar
-              </button>
-            </>
+            (() => {
+              const dt = activeSession?.scheduled_datetime ?? null;
+              const inWindow = activeSession?.is_in_window ?? false;
+              const enabled =
+                !!dt && inWindow && isValidScheduledDatetime(dt);
+              const tooltip = activeSessionLoading
+                ? 'Cargando…'
+                : !dt
+                  ? 'Sin sesión activa para este curso'
+                  : !inWindow
+                    ? 'La sesión aún no está disponible para registro'
+                    : undefined;
+              return (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginRight: 'auto',
+                      minWidth: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={!enabled || activeSessionLoading}
+                      title={tooltip}
+                      onClick={() => {
+                        if (panel.kind === 'view' && dt && enabled) {
+                          setAttendanceTarget({
+                            course: panel.course,
+                            datetime: dt,
+                          });
+                        }
+                      }}
+                    >
+                      <CalendarIcon size={16} />
+                      Pasar lista
+                    </button>
+                    {enabled && dt && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--color-text-muted)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {formatSessionCompact(dt)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => setToDelete(panel.course)}
+                  >
+                    <TrashIcon size={16} />
+                    Eliminar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() =>
+                      panel.kind === 'view' && openEdit(panel.course)
+                    }
+                  >
+                    <PencilIcon size={16} />
+                    Editar
+                  </button>
+                </>
+              );
+            })()
           ) : undefined
         }
       >
@@ -693,9 +788,25 @@ export default function Classes() {
             currency={currency}
             allCourses={activeCourses}
             onCountsChanged={fetchEnrollmentCounts}
+            attendanceVersion={attendanceVersion}
+            onOpenAttendance={(dt) => {
+              if (panel?.kind === 'view') {
+                setAttendanceTarget({ course: panel.course, datetime: dt });
+              }
+            }}
           />
         )}
       </SidePanel>
+
+      {attendanceTarget && (
+        <AttendanceSheet
+          open={!!attendanceTarget}
+          course={attendanceTarget.course}
+          scheduledDatetime={attendanceTarget.datetime}
+          onClose={() => setAttendanceTarget(null)}
+          onSaved={() => setAttendanceVersion((v) => v + 1)}
+        />
+      )}
 
       <ConfirmModal
         open={!!toDelete}
