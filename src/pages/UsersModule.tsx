@@ -90,8 +90,8 @@ const DEBT_OPTIONS: { value: Debt | ''; label: string }[] = [
   { value: '', label: 'Todos los cobros' },
   { value: 'none', label: 'Al corriente' },
   { value: 'any', label: 'Con deuda' },
-  { value: 'tuition', label: 'Mensualidad pendiente' },
-  { value: 'enrollment_fee', label: 'Inscripción pendiente' },
+  { value: 'tuition', label: 'Deuda mensualidad' },
+  { value: 'enrollment_fee', label: 'Deuda matrícula anual' },
 ];
 
 function initials(first: string, last: string): string {
@@ -107,6 +107,24 @@ function formatDateShort(value: string | null): string {
     month: 'short',
     year: '2-digit',
   });
+}
+
+const DEFAULT_GRACE_DAYS = 7;
+
+/**
+ * Ventana de pago a partir del día de cobro (día de `next_due_date`) más los
+ * días de gracia de la academia. Ej. día 1 con gracia 7 → "1–7".
+ */
+function paymentWindow(
+  nextDueDate: string | null,
+  graceDays: number,
+): string | null {
+  if (!nextDueDate) return null;
+  const d = new Date(nextDueDate + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  const start = d.getDate();
+  const end = start + Math.max(1, graceDays) - 1;
+  return `${start}–${end}`;
 }
 
 function pendingToTransactionRead(
@@ -154,6 +172,7 @@ export default function UsersModule(props: UsersModuleProps) {
   const token = getToken();
   const { me } = useAuth();
   const currency = me?.academy.currency ?? null;
+  const graceDays = me?.academy.payment_grace_days ?? DEFAULT_GRACE_DAYS;
 
   const [status, setStatus] = useState<Filter>('active');
   const [search, setSearch] = useState('');
@@ -384,7 +403,7 @@ export default function UsersModule(props: UsersModuleProps) {
             user_id: userId,
             amount: academy.enrollment_fee_amount,
             transaction_date: today,
-            description: 'Inscripción',
+            description: 'Matrícula anual',
             external_name: null,
             course_id: null,
             period_start: null,
@@ -672,8 +691,28 @@ export default function UsersModule(props: UsersModuleProps) {
             <table className="users-table">
               <thead>
                 <tr>
-                  <th>Nombre completo</th>
-                  <th>Email</th>
+                  <th>{showDebtColumns ? 'Estudiante' : 'Nombre completo'}</th>
+                  {showDebtColumns && (
+                    <th className="table-cell--nowrap">N.º</th>
+                  )}
+                  {showDebtColumns && <th>Grupo</th>}
+                  {!showDebtColumns && <th>Email</th>}
+                  {showDebtColumns && (
+                    <th
+                      className="table-cell--nowrap"
+                      style={{ textAlign: 'right' }}
+                    >
+                      Mensualidad
+                    </th>
+                  )}
+                  {showDebtColumns && (
+                    <th
+                      className="table-cell--nowrap"
+                      style={{ textAlign: 'right' }}
+                    >
+                      Matrícula anual
+                    </th>
+                  )}
                   <th>Estado</th>
                   {showDebtColumns && (
                     <th
@@ -684,7 +723,9 @@ export default function UsersModule(props: UsersModuleProps) {
                     </th>
                   )}
                   {showDebtColumns && (
-                    <th className="table-cell--nowrap">Próximo pago</th>
+                    <th className="table-cell--nowrap">
+                      Días de pago / Próximo pago
+                    </th>
                   )}
                   <th
                     className="table-cell--nowrap"
@@ -715,7 +756,47 @@ export default function UsersModule(props: UsersModuleProps) {
                           </div>
                         </div>
                       </td>
-                      <td>{u.email ?? '—'}</td>
+                      {showDebtColumns && (
+                        <td className="table-cell--nowrap">
+                          {u.role_consecutive ?? (
+                            <span className="table-cell--muted">—</span>
+                          )}
+                        </td>
+                      )}
+                      {showDebtColumns && (
+                        <td>
+                          {u.groups && u.groups.length > 0 ? (
+                            u.groups.map((g) => g.name).join(', ')
+                          ) : (
+                            <span className="table-cell--muted">—</span>
+                          )}
+                        </td>
+                      )}
+                      {!showDebtColumns && <td>{u.email ?? '—'}</td>}
+                      {showDebtColumns && (
+                        <td
+                          className="table-cell--nowrap"
+                          style={{ textAlign: 'right' }}
+                        >
+                          {u.tuition_amount != null ? (
+                            formatMoney(u.tuition_amount, currency)
+                          ) : (
+                            <span className="table-cell--muted">—</span>
+                          )}
+                        </td>
+                      )}
+                      {showDebtColumns && (
+                        <td
+                          className="table-cell--nowrap"
+                          style={{ textAlign: 'right' }}
+                        >
+                          {u.enrollment_fee_amount != null ? (
+                            formatMoney(u.enrollment_fee_amount, currency)
+                          ) : (
+                            <span className="table-cell--muted">—</span>
+                          )}
+                        </td>
+                      )}
                       <td>
                         <StatusBadge status={u.status} />
                       </td>
@@ -735,9 +816,10 @@ export default function UsersModule(props: UsersModuleProps) {
                           {u.next_due_date ? (
                             <>
                               <div className="table-cell-stacked__primary">
-                                {formatDateShort(u.next_due_date)}
+                                Días {paymentWindow(u.next_due_date, graceDays)}
                               </div>
                               <div className="table-cell-stacked__secondary">
+                                {formatDateShort(u.next_due_date)} ·{' '}
                                 {formatMoney(u.next_due_amount, currency)}
                               </div>
                             </>
@@ -860,6 +942,7 @@ export default function UsersModule(props: UsersModuleProps) {
         {panel?.kind === 'edit' && (
           <UserForm
             mode="edit"
+            role={role}
             user={panel.user}
             onSubmit={(payload) => handleUpdate(panel.user.id, payload)}
             onCancel={closePanel}

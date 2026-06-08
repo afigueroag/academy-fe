@@ -2,7 +2,7 @@ import type { TransactionCategory, TransactionStatus } from '../types';
 
 const CATEGORY: Record<TransactionCategory, string> = {
   tuition: 'Mensualidad',
-  enrollment_fee: 'Cuota de inscripción',
+  enrollment_fee: 'Matrícula anual',
   material_sale: 'Material',
   exam_fee: 'Examen',
   private_class: 'Clase privada',

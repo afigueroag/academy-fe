@@ -1,6 +1,8 @@
 import type {
+  AcademyUpdate,
   ActiveSessionRead,
   AttendanceCreate,
+  AttendanceMatrixRead,
   AttendanceRead,
   AttendanceUpdate,
   CourseCreate,
@@ -179,6 +181,12 @@ export async function changeMyPassword(payload: PasswordChange): Promise<void> {
   if (!res.ok) throw await parseError(res);
 }
 
+export async function updateMe(patch: UserUpdate): Promise<UserMe> {
+  const res = await authFetch('/me', { method: 'PATCH', body: patch });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserMe;
+}
+
 export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
   const q = new URLSearchParams();
   q.set('role', params.role);
@@ -198,6 +206,17 @@ export async function getUser(id: number): Promise<UserRead> {
   const res = await authFetch(`/users/${id}`);
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as UserRead;
+}
+
+export async function updateAcademy(
+  id: number,
+  patch: AcademyUpdate,
+): Promise<void> {
+  const res = await authFetch(`/academies/${id}`, {
+    method: 'PATCH',
+    body: patch,
+  });
+  if (!res.ok) throw await parseError(res);
 }
 
 export async function createUser(payload: UserCreate): Promise<UserRead> {
@@ -574,6 +593,21 @@ export async function getActiveSession(
   const res = await authFetch(`/courses/${course_id}/active-session`);
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as ActiveSessionRead;
+}
+
+export async function getCourseAttendanceMatrix(
+  courseId: number,
+  params: { from_date?: string; to_date?: string } = {},
+): Promise<AttendanceMatrixRead> {
+  const q = new URLSearchParams();
+  if (params.from_date) q.set('from_date', params.from_date);
+  if (params.to_date) q.set('to_date', params.to_date);
+  const qs = q.toString();
+  const res = await authFetch(
+    `/courses/${courseId}/attendance-matrix${qs ? `?${qs}` : ''}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AttendanceMatrixRead;
 }
 
 export async function getInstructorPmt(

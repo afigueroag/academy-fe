@@ -69,6 +69,36 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 <span>Configuración</span>
               </NavLink>
             </>
+          ) : me?.role === 'instructor' ? (
+            <>
+              <NavLink
+                to="/inicio"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <HomeIcon size={18} />
+                <span>Inicio</span>
+              </NavLink>
+              <NavLink
+                to="/clases"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <GraduationIcon size={18} />
+                <span>Mis clases</span>
+              </NavLink>
+              <NavLink
+                to="/configuracion"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <SettingsIcon size={18} />
+                <span>Configuración</span>
+              </NavLink>
+            </>
           ) : (
             <>
               <NavLink
@@ -107,6 +137,17 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 >
                   <DollarIcon size={18} />
                   <span>Ventas</span>
+                </NavLink>
+              )}
+              {me?.role === 'admin' && (
+                <NavLink
+                  to="/ajustes"
+                  className={({ isActive }) =>
+                    'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                  }
+                >
+                  <SettingsIcon size={18} />
+                  <span>Configuración</span>
                 </NavLink>
               )}
             </>

@@ -243,6 +243,12 @@ button {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
+.input[type="color"] {
+  height: 44px;
+  padding: 4px;
+  cursor: pointer;
+}
+
 .input[aria-invalid="true"],
 .select[aria-invalid="true"] {
   border-color: var(--color-danger);
@@ -2861,4 +2867,205 @@ button {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
+}
+
+/* ---------- Instructor: Inicio ---------- */
+
+.home-classes-section,
+.home-payouts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-classes-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.home-classes-card__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-classes-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-classes-card__time {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.home-classes-card__cta {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.home-payouts-section__title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.home-payouts-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.home-payouts-row:last-child {
+  border-bottom: none;
+}
+
+.home-payouts-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-payouts-row__desc {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-payouts-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.home-payouts-row__amount {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* ---------- Instructor: matriz de asistencia ---------- */
+
+.attendance-matrix-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.attendance-matrix {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.attendance-matrix th,
+.attendance-matrix td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.attendance-matrix tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.attendance-matrix thead th {
+  background: var(--color-bg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.attendance-matrix__student {
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  text-align: left;
+  min-width: 180px;
+  z-index: 1;
+}
+
+.attendance-matrix thead .attendance-matrix__student {
+  background: var(--color-bg);
+  z-index: 2;
+}
+
+.attendance-matrix__student-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.attendance-matrix__conditions {
+  display: inline-block;
+  margin-top: 4px;
+  max-width: 200px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.attendance-matrix__cell {
+  font-weight: 600;
+}
+
+.attendance-matrix__cell--present {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: color-mix(in srgb, var(--color-primary) 70%, var(--color-text));
+}
+
+.attendance-matrix__cell--absent {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 75%, var(--color-text));
+}
+
+.attendance-matrix__cell--excused {
+  background: color-mix(in srgb, var(--color-text-muted) 18%, transparent);
+  color: var(--color-text);
+}
+
+.attendance-matrix__empty {
+  color: var(--color-text-subtle);
+}
+
+.attendance-matrix__pct {
+  font-weight: 600;
+  color: var(--color-text);
 }

@@ -12,6 +12,12 @@ import { ApiError } from '../api';
 import { SpinnerIcon } from '../brand';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
+import StudentExtraFields, {
+  EMPTY_STUDENT_EXTRA,
+  studentExtraFromUser,
+  studentExtraToPayload,
+  type StudentExtra,
+} from './StudentExtraFields';
 
 export interface StudentBillingSetup {
   createTuition: boolean;
@@ -111,6 +117,7 @@ interface CreateProps {
 
 interface EditProps {
   mode: 'edit';
+  role: UserRole;
   user: UserRead;
   onSubmit: (payload: UserUpdate) => Promise<void>;
   onCancel: () => void;
@@ -124,7 +131,8 @@ type UserFormProps = CreateProps | EditProps;
 export default function UserForm(props: UserFormProps) {
   const { mode, onCancel, submitting, serverError, apiError } = props;
 
-  const isStudentCreate = mode === 'create' && props.role === 'student';
+  const isStudent = props.role === 'student';
+  const isStudentCreate = mode === 'create' && isStudent;
   const academy: AcademyMe | undefined =
     mode === 'create' ? props.academy : undefined;
   const currency = academy?.currency ?? null;
@@ -138,6 +146,9 @@ export default function UserForm(props: UserFormProps) {
 
   const [state, setState] = useState<FormState>(() =>
     mode === 'edit' ? fromUser(props.user) : EMPTY,
+  );
+  const [extra, setExtra] = useState<StudentExtra>(() =>
+    mode === 'edit' ? studentExtraFromUser(props.user) : EMPTY_STUDENT_EXTRA,
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -158,7 +169,10 @@ export default function UserForm(props: UserFormProps) {
   );
 
   useEffect(() => {
-    if (mode === 'edit') setState(fromUser(props.user));
+    if (mode === 'edit') {
+      setState(fromUser(props.user));
+      setExtra(studentExtraFromUser(props.user));
+    }
   }, [mode, mode === 'edit' ? props.user : null]);
 
   useEffect(() => {
@@ -216,6 +230,7 @@ export default function UserForm(props: UserFormProps) {
         start_date: nullable(state.start_date),
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
+        ...(isStudent ? studentExtraToPayload(extra) : {}),
       };
       const billing: StudentBillingSetup | undefined = isStudentCreate
         ? {
@@ -240,6 +255,7 @@ export default function UserForm(props: UserFormProps) {
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
         status: state.status as UserStatus,
+        ...(isStudent ? studentExtraToPayload(extra) : {}),
       };
       await props.onSubmit(payload);
     }
@@ -396,6 +412,10 @@ export default function UserForm(props: UserFormProps) {
         <span className="field__error">{errors.special_conditions ?? ''}</span>
       </div>
 
+      {isStudent && (
+        <StudentExtraFields value={extra} onChange={setExtra} idPrefix="uf" />
+      )}
+
       {mode === 'edit' && (
         <div className="field">
           <label className="field__label" htmlFor="uf-status">
@@ -528,7 +548,7 @@ export default function UserForm(props: UserFormProps) {
                   style={{ borderTop: '1px solid var(--color-border)' }}
                 >
                   <div>
-                    <div className="switch-row__label">Cobrar inscripción</div>
+                    <div className="switch-row__label">Cobrar matrícula anual</div>
                     <div className="switch-row__hint">
                       {labelEnrollmentFeeMode(academy.enrollment_fee_mode)}
                     </div>

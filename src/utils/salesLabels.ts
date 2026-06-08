@@ -21,7 +21,7 @@ const STATUS: Record<TransactionStatus, string> = {
 
 const CATEGORY: Record<TransactionCategory, string> = {
   tuition: 'Mensualidad',
-  enrollment_fee: 'Inscripción',
+  enrollment_fee: 'Matrícula anual',
   material_sale: 'Venta de material',
   exam_fee: 'Examen',
   private_class: 'Clase privada',
@@ -54,8 +54,8 @@ const PAYMENT: Record<PaymentMethod, string> = {
 
 const ENROLLMENT_FEE_MODE: Record<EnrollmentFeeMode, string> = {
   annual_recurring: 'Anual recurrente',
-  one_time_on_signup: 'Única al inscribir',
-  none: 'Sin inscripción',
+  one_time_on_signup: 'Única al matricular',
+  none: 'Sin matrícula anual',
 };
 
 export function labelTransactionKind(v: TransactionKind): string {

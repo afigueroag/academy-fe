@@ -4,7 +4,7 @@ import { useAuth } from './auth';
 import type { UserRole } from './types';
 
 export function homePathForRole(role: UserRole | undefined | null): string {
-  if (role === 'student') return '/inicio';
+  if (role === 'student' || role === 'instructor') return '/inicio';
   return '/students';
 }
 

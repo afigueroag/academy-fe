@@ -58,6 +58,8 @@ Asume que el BE ya implementó BE-1 a BE-5 (campo `credentials`, `PATCH /me`, `/
 
 ### 4.1 `src/types.ts`
 
+> **Nota sobre `UserRead`/`UserUpdate`**: el openapi actualizado expandió estos schemas con campos nuevos pensados para estudiantes que NO se renderizan en el módulo del instructor pero deben existir en `types.ts` para que el resto del código (StudentConfig, Users invite, etc.) siga compilando. Reflejar tal cual los devuelve OpenAPI: `gender` + enum `UserGender`, `postal_code`, `father_name`/`father_occupation`/`father_employer`/`father_address`/`father_phone`, `mother_*` (mismos sufijos), `emergency_contact_1_name`/`_phone`/`_relationship`, `emergency_contact_2_*`. Ninguno se edita ni muestra en `/configuracion` del instructor.
+
 **Modificar** los tipos existentes:
 
 ```ts
@@ -67,15 +69,15 @@ export interface UserMe {
   credentials: string | null;
 }
 
-// UserRead — añadir credentials
+// UserRead — añadir credentials + los campos nuevos del openapi (gender, postal_code, father_*, mother_*, emergency_contact_*)
 export interface UserRead {
-  // ...campos actuales...
+  // ...campos actuales + los nuevos del openapi...
   credentials: string | null;
 }
 
-// UserUpdate — añadir credentials
+// UserUpdate — añadir credentials + los campos nuevos del openapi
 export interface UserUpdate {
-  // ...campos actuales...
+  // ...campos actuales + los nuevos del openapi...
   credentials?: string | null;
 }
 
@@ -132,10 +134,28 @@ export interface StudentAttendanceRow {
 }
 
 export interface AttendanceMatrixRead {
-  course: CourseRead;                 // sin individual_cost (BE-5 lo omite por rol)
-  capacity: { enrolled: number; max: number };
+  course: CourseInstructorRead;       // schema dedicado para instructor (BE-5)
+  capacity: { enrolled: number; max: number };  // BE devuelve dict abierto; tipar así para uso del FE
   sessions: string[];                 // ISO datetimes, asc
   students: StudentAttendanceRow[];
+}
+
+// Schema dedicado al instructor: igual que CourseRead pero SIN individual_cost,
+// usa CourseInstructorLinkPublic (sin hourly_rate de nadie), y expone has_capacity
+// como bool (no conteo exacto — para conteo exacto usar AttendanceMatrixRead.capacity).
+export interface CourseInstructorRead {
+  id: number;
+  name: string;
+  description: string | null;
+  status: CourseStatus;
+  recurrence: CourseRecurrence;
+  duration_minutes: number;
+  location: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  schedules: Schedule[];
+  instructor_links: CourseInstructorLinkPublic[];
+  has_capacity: boolean;
 }
 
 // Ya existen en openapi.json — exponer si no están:
@@ -290,11 +310,12 @@ Al abrirse, hace `getCourseAttendanceMatrix(courseId)` (sin params → últimas 
 
 **Contenido del panel** (en orden):
 
-1. **Info del curso** (`.detail-list`):
+1. **Info del curso** (`.detail-list`, datos de `AttendanceMatrixRead.course: CourseInstructorRead`):
    - Nombre, descripción, ubicación, duración (min), fechas inicio/fin, recurrencia.
-   - **NO mostrar** `individual_cost`.
-   - Cupo: `{capacity.enrolled} / {capacity.max}` (mostrar números exactos).
+   - **NO mostrar** `individual_cost` (el schema `CourseInstructorRead` no lo trae).
+   - **Cupo**: `{capacity.enrolled} / {capacity.max}` desde `AttendanceMatrixRead.capacity` — este es el **único lugar** en el FE del instructor donde se ve el conteo exacto. En la lista de `/clases` no se muestra cupo.
    - Horario formateado desde `course.schedules[]`.
+   - Instructores asignados: lista desde `course.instructor_links[]` (todos con `CourseInstructorLinkPublic`, sin `hourly_rate`).
 2. **Matriz de asistencia** (`.attendance-matrix-wrapper > table.attendance-matrix`):
    - Header: primera columna sticky "Alumno" + columnas con fecha corta de cada sesión ("7 nov", "10 nov", …).
    - Última columna fija al final: "% Asistencia" (de `attendance_pct`).
@@ -366,7 +387,7 @@ Pantalla análoga a StudentConfig pero con campos distintos.
 - [ ] Rutas `/inicio`, `/clases`, `/configuracion` aceptan `student` e `instructor` con dispatcher por rol.
 - [ ] `DefaultRedirect` envía `instructor` a `/inicio`.
 - [ ] Sidebar tiene 3 ramas (student / instructor / admin-recep) con icons y labels correctos.
-- [ ] [src/types.ts](src/types.ts) incluye: `credentials` en UserMe/UserRead/UserUpdate; `HomeMeInstructorKpis`, `AssignedCourseRead`, `HomeMePayouts` en HomeMe; `AttendanceMatrixRead`, `StudentAttendanceRow`, `AttendanceCell`; `InstructorPmtRead`, `CoursePmtRead`.
+- [ ] [src/types.ts](src/types.ts) incluye: `credentials` en UserMe/UserRead/UserUpdate; campos nuevos del openapi en UserRead/UserUpdate (gender, postal_code, father_*, mother_*, emergency_contact_*); `HomeMeInstructorKpis`, `AssignedCourseRead`, `HomeMePayouts` en HomeMe; `CourseInstructorRead`; `AttendanceMatrixRead`, `StudentAttendanceRow`, `AttendanceCell`; `InstructorPmtRead`, `CoursePmtRead`.
 - [ ] [src/api.ts](src/api.ts) expone: `updateMe`, `getCourseAttendanceMatrix`, `getInstructorPayment`.
 - [ ] `src/utils/instructorTypeLabels.ts` con `instructorTypeLabel(type)`.
 - [ ] `src/pages/InstructorHome.tsx` con KPIs + `.home-grid` 2-col (Mis clases lite + Pagos pendiente/realizados). Sin scroll horizontal en desktop.
@@ -390,5 +411,5 @@ Construir el FE asumiendo que estos cambios están listos en el backend. Si algu
 | **BE-2** | `PATCH /me` (request `UserUpdate`, response `UserMe`); ignora `role`/`email`/`status`/`academy_id`/`start_date`. Para instructor también ignora `payment_method`/`special_conditions`. | Configuración |
 | **BE-3** | `GET /me/home` role-aware: cuando `role=instructor`, `HomeMe` incluye `instructor_kpis`, `assigned_courses[]`, `payouts{pending,scheduled,paid_recent}`. Campos student-only siguen funcionando para estudiantes. Payouts filtra `kind=expense`, `category=salary`, `user_id=me`. | Inicio |
 | **BE-4** | `GET /courses/{id}/attendance-matrix?from_date=&to_date=` devolviendo `AttendanceMatrixRead`. 403 si el caller no es instructor del curso ni admin. Default: últimas 20 sesiones. Incluye `special_conditions` por estudiante solo aquí. | Detalle de Clases |
-| **BE-5** | En serialización de `CourseRead` cuando `role=instructor`: omitir `individual_cost`; incluir `max_students`; en `instructor_links[]`, omitir `hourly_rate` de links donde `instructor_id != current_user.id`. | Seguridad (C1) |
+| **BE-5** | Implementado vía nuevo schema `CourseInstructorRead` (dispatch por rol en `GET /courses` y `GET /courses/{id}`): sin `individual_cost`, `instructor_links` usa `CourseInstructorLinkPublic` (sin hourly_rate de nadie), `has_capacity: bool` (sin conteo exacto). El hourly_rate propio se obtiene exclusivamente de `GET /users/{me.id}/instructor-pmt`; el conteo exacto de cupo, exclusivamente de `AttendanceMatrixRead.capacity`. | Seguridad (C1) |
 | **BE-6** | Confirmado: `TransactionCategory.salary` + `user_id` como discriminador para nómina del instructor. Sin enum nuevo. | Inicio (Pagos) |

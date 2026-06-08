@@ -14,6 +14,8 @@ export type UserStatus = 'pending' | 'active' | 'inactive';
 
 export type UserRole = 'admin' | 'receptionist' | 'instructor' | 'student';
 
+export type UserGender = 'masculine' | 'feminine';
+
 export type PaymentMethod =
   | 'credit_card'
   | 'debit_card'
@@ -119,6 +121,34 @@ export interface AcademyMe {
   enrollment_fee_month: number | null;
   enrollment_fee_mode: EnrollmentFeeMode | null;
   weekend_billing_behavior: WeekendBillingBehavior | null;
+  // Días de gracia para pagar a partir del día de cobro (default 7).
+  payment_grace_days: number | null;
+}
+
+// Campos editables de la academia desde la pantalla de configuración (admin).
+// PATCH /academies/{id}. `name` y `payment_grace_days` requieren cambios de
+// backend (ver STUDENTS_TABLE_BACKEND_PROMPT.md); el resto ya existe en OpenAPI.
+export interface AcademyUpdate {
+  name?: string;
+  type?: AcademyType;
+  plan?: AcademyPlan | null;
+  default_instructor_hourly_rate?: number | null;
+  default_assistant_hourly_rate?: number | null;
+  students_self_unenroll?: boolean | null;
+  currency?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  accent_color?: string | null;
+  country?: string;
+  timezone?: string;
+  default_billing_day?: number | null;
+  billing_lookahead_months?: number | null;
+  auto_billing_enabled?: boolean | null;
+  enrollment_fee_amount?: number | null;
+  enrollment_fee_month?: number | null;
+  enrollment_fee_mode?: EnrollmentFeeMode | null;
+  weekend_billing_behavior?: WeekendBillingBehavior | null;
+  payment_grace_days?: number | null;
 }
 
 export interface AcademyPublic {
@@ -136,6 +166,7 @@ export interface UserMe {
   status: UserStatus;
   is_active: boolean;
   academy: AcademyMe;
+  credentials: string | null;
   pending_transactions: TransactionUserRead[];
   debt_amount: number | null;
   next_due_date: string | null;
@@ -151,15 +182,50 @@ export interface UserRead {
   address: string | null;
   date_of_birth: string | null;
   start_date: string | null;
+  gender: UserGender | null;
+  postal_code: string | null;
+  father_name: string | null;
+  father_occupation: string | null;
+  father_employer: string | null;
+  father_address: string | null;
+  father_phone: string | null;
+  mother_name: string | null;
+  mother_occupation: string | null;
+  mother_employer: string | null;
+  mother_address: string | null;
+  mother_phone: string | null;
+  emergency_contact_1_name: string | null;
+  emergency_contact_1_phone: string | null;
+  emergency_contact_1_relationship: string | null;
+  emergency_contact_2_name: string | null;
+  emergency_contact_2_phone: string | null;
+  emergency_contact_2_relationship: string | null;
   payment_method: PaymentMethod | null;
   special_conditions: string | null;
   status: UserStatus;
+  credentials: string | null;
   is_active: boolean;
   academy: AcademyPublic;
   pending_transactions: TransactionUserRead[];
   debt_amount: number | null;
   next_due_date: string | null;
   next_due_amount: number | null;
+  role_consecutive: number; // número de estudiante (BE ya lo expone)
+  // Grupos a los que pertenece el alumno (puede pertenecer a varios). El BE lo
+  // expone como lista; hoy aún no está en openapi.json. Ver STUDENTS_TABLE_BACKEND_PROMPT.md.
+  groups?: UserGroup[] | null;
+  // Montos activos de la tabla (cents); el BE ya los expone (nullable).
+  tuition_amount: number | null; // costo mensualidad activa (cents)
+  enrollment_fee_amount: number | null; // costo matrícula anual activa (cents)
+}
+
+export interface UserGroup {
+  id: number;
+  name: string;
+  // Para grupos ordinales (p. ej. cintas de karate) el orden importa en algunas
+  // funciones; los cualitativos (judo, taekwondo) no lo usan. Pendiente en BE;
+  // la UI hoy solo muestra el nombre.
+  order?: number | null;
 }
 
 export interface UserCreate {
@@ -173,6 +239,25 @@ export interface UserCreate {
   start_date: string | null;
   payment_method: PaymentMethod | null;
   special_conditions: string | null;
+  credentials?: string | null;
+  gender?: UserGender | null;
+  postal_code?: string | null;
+  father_name?: string | null;
+  father_occupation?: string | null;
+  father_employer?: string | null;
+  father_address?: string | null;
+  father_phone?: string | null;
+  mother_name?: string | null;
+  mother_occupation?: string | null;
+  mother_employer?: string | null;
+  mother_address?: string | null;
+  mother_phone?: string | null;
+  emergency_contact_1_name?: string | null;
+  emergency_contact_1_phone?: string | null;
+  emergency_contact_1_relationship?: string | null;
+  emergency_contact_2_name?: string | null;
+  emergency_contact_2_phone?: string | null;
+  emergency_contact_2_relationship?: string | null;
 }
 
 export interface UserInvite {
@@ -192,6 +277,25 @@ export interface UserUpdate {
   payment_method: PaymentMethod | null;
   special_conditions: string | null;
   status: UserStatus | null;
+  credentials?: string | null;
+  gender?: UserGender | null;
+  postal_code?: string | null;
+  father_name?: string | null;
+  father_occupation?: string | null;
+  father_employer?: string | null;
+  father_address?: string | null;
+  father_phone?: string | null;
+  mother_name?: string | null;
+  mother_occupation?: string | null;
+  mother_employer?: string | null;
+  mother_address?: string | null;
+  mother_phone?: string | null;
+  emergency_contact_1_name?: string | null;
+  emergency_contact_1_phone?: string | null;
+  emergency_contact_1_relationship?: string | null;
+  emergency_contact_2_name?: string | null;
+  emergency_contact_2_phone?: string | null;
+  emergency_contact_2_relationship?: string | null;
 }
 
 export interface UserPublic {
@@ -546,6 +650,25 @@ export interface NextSessionMe {
   datetime: string;
 }
 
+export interface HomeMeInstructorKpis {
+  active_courses: number;
+  total_students: number;
+  hours_this_month: number;
+  pending_amount: number; // cents
+}
+
+export interface AssignedCourseRead {
+  course: CoursePublic;
+  next_session_datetime: string | null; // ISO
+  has_active_session: boolean;
+}
+
+export interface HomeMePayouts {
+  pending: TransactionRead[];
+  scheduled: TransactionRead[];
+  paid_recent: TransactionRead[];
+}
+
 export interface HomeMe {
   user: UserRead;
   enrolled_courses: CourseRead[];
@@ -553,4 +676,46 @@ export interface HomeMe {
   scheduled_transactions: TransactionRead[];
   attendance_summary: AttendanceMe | null;
   next_session: NextSessionMe | null;
+  // null cuando role != instructor:
+  instructor_kpis: HomeMeInstructorKpis | null;
+  assigned_courses: AssignedCourseRead[];
+  payouts: HomeMePayouts | null;
+}
+
+// Schema dedicado al instructor (BE-5): sin individual_cost, instructor_links
+// usa CourseInstructorLinkPublic (sin hourly_rate), has_capacity como bool.
+export interface CourseInstructorRead {
+  id: number;
+  name: string;
+  description: string | null;
+  status: CourseStatus;
+  recurrence: CourseRecurrence;
+  duration_minutes: number;
+  location: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  schedules: Schedule[];
+  instructor_links: CourseInstructorLinkPublic[];
+  has_capacity: boolean;
+}
+
+export interface AttendanceCell {
+  scheduled_datetime: string; // ISO
+  status: AttendanceStatus;
+}
+
+export interface StudentAttendanceRow {
+  id: number;
+  first_name: string;
+  last_name: string;
+  special_conditions: string | null;
+  attendance_pct: number | null;
+  attendance: AttendanceCell[];
+}
+
+export interface AttendanceMatrixRead {
+  course: CourseInstructorRead;
+  capacity: { enrolled: number; max: number };
+  sessions: string[]; // ISO datetimes, asc
+  students: StudentAttendanceRow[];
 }

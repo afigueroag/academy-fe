@@ -7,33 +7,22 @@ import {
 } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '../auth';
-import {
-  ApiError,
-  changeMyPassword,
-  getMe,
-  getUser,
-  updateUser,
-} from '../api';
+import { ApiError, changeMyPassword, getUser, updateMe } from '../api';
 import { SpinnerIcon } from '../brand';
-import { labelPaymentMethod } from '../utils/salesLabels';
-import StudentExtraFields, {
-  EMPTY_STUDENT_EXTRA,
-  studentExtraFromUser,
-  studentExtraToPayload,
-  type StudentExtra,
-} from '../components/StudentExtraFields';
-import type { PaymentMethod, UserRead, UserUpdate } from '../types';
+import type { UserRead, UserUpdate } from '../types';
 
-const PAYMENT_METHODS: PaymentMethod[] = [
-  'credit_card',
-  'debit_card',
-  'paypal',
-  'bank_transfer',
-  'cash',
-  'other',
-];
+function formatDate(value: string | null): string {
+  if (!value) return '—';
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
-export default function StudentConfig() {
+export default function InstructorConfig() {
   const { me, setMe } = useAuth();
 
   const [profile, setProfile] = useState<UserRead | null>(null);
@@ -45,9 +34,7 @@ export default function StudentConfig() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [dob, setDob] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [specialConditions, setSpecialConditions] = useState('');
-  const [extra, setExtra] = useState<StudentExtra>(EMPTY_STUDENT_EXTRA);
+  const [credentials, setCredentials] = useState('');
   const [profileErrors, setProfileErrors] = useState<{
     first_name?: string;
     last_name?: string;
@@ -86,9 +73,7 @@ export default function StudentConfig() {
         setPhone(data.phone ?? '');
         setAddress(data.address ?? '');
         setDob(data.date_of_birth ?? '');
-        setPaymentMethod(data.payment_method ?? '');
-        setSpecialConditions(data.special_conditions ?? '');
-        setExtra(studentExtraFromUser(data));
+        setCredentials(data.credentials ?? '');
         setError(null);
       } catch (err) {
         if (!cancelled) {
@@ -127,16 +112,27 @@ export default function StudentConfig() {
         address: address.trim() || null,
         date_of_birth: dob || null,
         start_date: profile.start_date,
-        payment_method: paymentMethod === '' ? null : paymentMethod,
-        special_conditions: specialConditions.trim() || null,
+        payment_method: profile.payment_method,
+        special_conditions: profile.special_conditions,
         status: null,
-        ...studentExtraToPayload(extra),
+        credentials: credentials.trim() || null,
       };
-      const updated = await updateUser(me.id, payload);
-      setProfile(updated);
-      const fresh = await getMe();
-      setMe(fresh);
-      showToast('Cambios guardados');
+      const updated = await updateMe(payload);
+      setMe(updated);
+      setProfile((p) =>
+        p
+          ? {
+              ...p,
+              first_name: payload.first_name,
+              last_name: payload.last_name,
+              phone: payload.phone,
+              address: payload.address,
+              date_of_birth: payload.date_of_birth,
+              credentials: payload.credentials ?? null,
+            }
+          : p,
+      );
+      showToast('Datos actualizados');
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -176,10 +172,7 @@ export default function StudentConfig() {
       setNewPasswordConfirm('');
       showToast('Contraseña actualizada');
     } catch (err) {
-      if (
-        err instanceof ApiError &&
-        (err.status === 401 || err.status === 400)
-      ) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
         setPasswordError(
           'No se pudo actualizar la contraseña. Verifica tus datos.',
         );
@@ -234,59 +227,76 @@ export default function StudentConfig() {
         <form onSubmit={handleProfileSubmit} noValidate>
           <h3 className="form-section__title">Mi información</h3>
 
-          <div className="field">
-            <label className="field__label" htmlFor="first_name">
-              Nombre
-            </label>
-            <input
-              id="first_name"
-              className="input"
-              type="text"
-              value={firstName}
-              onChange={(e) => {
-                setFirstName(e.target.value);
-                if (profileErrors.first_name)
-                  setProfileErrors((er) => ({ ...er, first_name: undefined }));
-              }}
-              aria-invalid={!!profileErrors.first_name}
-            />
-            <span className="field__error">
-              {profileErrors.first_name ?? ''}
-            </span>
+          <div className="field--row">
+            <div className="field">
+              <label className="field__label" htmlFor="first_name">
+                Nombre
+              </label>
+              <input
+                id="first_name"
+                className="input"
+                type="text"
+                value={firstName}
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  if (profileErrors.first_name)
+                    setProfileErrors((er) => ({ ...er, first_name: undefined }));
+                }}
+                aria-invalid={!!profileErrors.first_name}
+              />
+              <span className="field__error">
+                {profileErrors.first_name ?? ''}
+              </span>
+            </div>
+
+            <div className="field">
+              <label className="field__label" htmlFor="last_name">
+                Apellido
+              </label>
+              <input
+                id="last_name"
+                className="input"
+                type="text"
+                value={lastName}
+                onChange={(e) => {
+                  setLastName(e.target.value);
+                  if (profileErrors.last_name)
+                    setProfileErrors((er) => ({ ...er, last_name: undefined }));
+                }}
+                aria-invalid={!!profileErrors.last_name}
+              />
+              <span className="field__error">
+                {profileErrors.last_name ?? ''}
+              </span>
+            </div>
           </div>
 
-          <div className="field">
-            <label className="field__label" htmlFor="last_name">
-              Apellido
-            </label>
-            <input
-              id="last_name"
-              className="input"
-              type="text"
-              value={lastName}
-              onChange={(e) => {
-                setLastName(e.target.value);
-                if (profileErrors.last_name)
-                  setProfileErrors((er) => ({ ...er, last_name: undefined }));
-              }}
-              aria-invalid={!!profileErrors.last_name}
-            />
-            <span className="field__error">
-              {profileErrors.last_name ?? ''}
-            </span>
-          </div>
+          <div className="field--row">
+            <div className="field">
+              <label className="field__label" htmlFor="phone">
+                Teléfono
+              </label>
+              <input
+                id="phone"
+                className="input"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
 
-          <div className="field">
-            <label className="field__label" htmlFor="phone">
-              Teléfono
-            </label>
-            <input
-              id="phone"
-              className="input"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
+            <div className="field">
+              <label className="field__label" htmlFor="dob">
+                Fecha de nacimiento
+              </label>
+              <input
+                id="dob"
+                className="input"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="field">
@@ -303,57 +313,21 @@ export default function StudentConfig() {
           </div>
 
           <div className="field">
-            <label className="field__label" htmlFor="dob">
-              Fecha de nacimiento
-            </label>
-            <input
-              id="dob"
-              className="input"
-              type="date"
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label className="field__label" htmlFor="payment_method">
-              Método de pago
-            </label>
-            <select
-              id="payment_method"
-              className="input"
-              value={paymentMethod}
-              onChange={(e) =>
-                setPaymentMethod(e.target.value as PaymentMethod | '')
-              }
-            >
-              <option value="">Sin especificar</option>
-              {PAYMENT_METHODS.map((pm) => (
-                <option key={pm} value={pm}>
-                  {labelPaymentMethod(pm)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label className="field__label" htmlFor="special_conditions">
-              Condiciones especiales (alergias, contacto de emergencia, etc.)
+            <label className="field__label" htmlFor="credentials">
+              Credenciales
             </label>
             <textarea
-              id="special_conditions"
-              className="input"
+              id="credentials"
+              className="textarea"
               rows={3}
-              value={specialConditions}
-              onChange={(e) => setSpecialConditions(e.target.value)}
+              maxLength={500}
+              value={credentials}
+              onChange={(e) => setCredentials(e.target.value)}
             />
+            <span className="field__hint">
+              Ej. Cinta negra 4to dan, Conservatorio Nacional de Música, etc.
+            </span>
           </div>
-
-          <StudentExtraFields
-            value={extra}
-            onChange={setExtra}
-            idPrefix="cfg"
-          />
 
           <button
             type="submit"
@@ -464,7 +438,7 @@ export default function StudentConfig() {
       </section>
 
       <section className="config-section">
-        <h3 className="form-section__title">Mi cuenta</h3>
+        <h3 className="form-section__title">Datos académicos</h3>
         <div className="detail-list">
           <div className="detail-item">
             <span className="detail-item__label">Email</span>
@@ -483,7 +457,18 @@ export default function StudentConfig() {
           </div>
           <div className="detail-item">
             <span className="detail-item__label">Rol</span>
-            <span className="detail-item__value">Estudiante</span>
+            <span className="detail-item__value">Instructor</span>
+          </div>
+          <div className="detail-item">
+            <span className="detail-item__label">Fecha de alta</span>
+            <span
+              className={
+                'detail-item__value' +
+                (profile.start_date ? '' : ' detail-item__value--empty')
+              }
+            >
+              {formatDate(profile.start_date)}
+            </span>
           </div>
         </div>
       </section>
