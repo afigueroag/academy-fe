@@ -5,6 +5,7 @@ import Students from './pages/Students';
 import Instructors from './pages/Instructors';
 import Classes from './pages/Classes';
 import Sales from './pages/Sales';
+import Gastos from './pages/Gastos';
 import AcademyConfig from './pages/AcademyConfig';
 import Invite from './pages/Invite';
 import StudentHome from './pages/StudentHome';
@@ -62,6 +63,14 @@ export default function App() {
         element={
           <RoleRoute allow={['admin', 'receptionist']}>
             <Sales />
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/gastos"
+        element={
+          <RoleRoute allow={['admin', 'receptionist']}>
+            <Gastos />
           </RoleRoute>
         }
       />

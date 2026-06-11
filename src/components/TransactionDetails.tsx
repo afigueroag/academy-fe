@@ -1,4 +1,4 @@
-import type { TransactionRead } from '../types';
+import type { TransactionKind, TransactionRead } from '../types';
 import { TransactionStatusBadge } from './Badges';
 import { formatMoney } from '../utils/money';
 import {
@@ -43,9 +43,15 @@ function Item({
 interface Props {
   transaction: TransactionRead;
   currency: string | null;
+  kind?: TransactionKind;
 }
 
-export default function TransactionDetails({ transaction, currency }: Props) {
+export default function TransactionDetails({
+  transaction,
+  currency,
+  kind = 'sale',
+}: Props) {
+  const isExpense = kind === 'expense';
   const client = transaction.user
     ? `${transaction.user.first_name} ${transaction.user.last_name}`
     : transaction.external_name
@@ -55,7 +61,10 @@ export default function TransactionDetails({ transaction, currency }: Props) {
   return (
     <div className="detail-list">
       <Item label="Estado" value={<TransactionStatusBadge status={transaction.status} />} />
-      <Item label="Cliente" value={client} />
+      <Item
+        label={isExpense ? 'Proveedor / Beneficiario' : 'Cliente'}
+        value={client}
+      />
       <Item label="Categoría" value={labelTransactionCategory(transaction.category)} />
       <Item label="Descripción" value={transaction.description} />
       <Item label="Monto" value={formatMoney(transaction.amount, currency)} />
@@ -74,7 +83,10 @@ export default function TransactionDetails({ transaction, currency }: Props) {
       <Item label="Inicio del periodo" value={formatDate(transaction.period_start)} />
       <Item label="Fin del periodo" value={formatDate(transaction.period_end)} />
       {transaction.recurring_id !== null && (
-        <Item label="Cobro recurrente" value={`#${transaction.recurring_id}`} />
+        <Item
+          label={isExpense ? 'Gasto recurrente' : 'Cobro recurrente'}
+          value={`#${transaction.recurring_id}`}
+        />
       )}
     </div>
   );

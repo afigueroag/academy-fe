@@ -3,6 +3,7 @@ import type {
   PaymentMethod,
   TransactionCategory,
   TransactionCreate,
+  TransactionKind,
   TransactionRead,
   TransactionStatus,
   TransactionUpdate,
@@ -89,6 +90,7 @@ function fromTransaction(tx: TransactionRead): FormState {
 }
 
 interface BaseProps {
+  kind?: TransactionKind;
   onCancel: () => void;
   submitting: boolean;
   serverError: string | null;
@@ -110,6 +112,8 @@ type TransactionFormProps = CreateProps | EditProps;
 
 export default function TransactionForm(props: TransactionFormProps) {
   const { mode, onCancel, submitting, serverError, apiError } = props;
+  const kind = props.kind ?? 'sale';
+  const isExpense = kind === 'expense';
 
   const [state, setState] = useState<FormState>(() =>
     mode === 'edit' ? fromTransaction(props.transaction) : EMPTY(),
@@ -142,7 +146,9 @@ export default function TransactionForm(props: TransactionFormProps) {
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     if (state.client_type === 'registered' && !state.user_id) {
-      next.user_id = 'Selecciona un cliente registrado';
+      next.user_id = isExpense
+        ? 'Selecciona un usuario registrado'
+        : 'Selecciona un cliente registrado';
     }
     if (state.client_type === 'external' && !state.external_name.trim()) {
       next.external_name = 'Requerido';
@@ -170,7 +176,7 @@ export default function TransactionForm(props: TransactionFormProps) {
     if (amountCents === null) return;
 
     const payload: TransactionCreate = {
-      kind: 'sale',
+      kind,
       category: state.category as TransactionCategory,
       status: state.status,
       description: state.description.trim(),
@@ -201,7 +207,7 @@ export default function TransactionForm(props: TransactionFormProps) {
     }
   };
 
-  const categories = categoriesForKind('sale');
+  const categories = categoriesForKind(kind);
 
   return (
     <form id="transaction-form" onSubmit={handleSubmit} noValidate>
@@ -212,7 +218,9 @@ export default function TransactionForm(props: TransactionFormProps) {
       )}
 
       <div className="field">
-        <label className="field__label">Cliente</label>
+        <label className="field__label">
+          {isExpense ? 'Proveedor / Beneficiario' : 'Cliente'}
+        </label>
         <div className="tab-group" role="tablist" style={{ marginBottom: 8 }}>
           <button
             type="button"
@@ -227,7 +235,7 @@ export default function TransactionForm(props: TransactionFormProps) {
             onClick={() => set('client_type', 'registered')}
             disabled={readonly}
           >
-            Cliente registrado
+            {isExpense ? 'Usuario registrado' : 'Cliente registrado'}
           </button>
           <button
             type="button"
@@ -242,7 +250,7 @@ export default function TransactionForm(props: TransactionFormProps) {
             onClick={() => set('client_type', 'external')}
             disabled={readonly}
           >
-            Cliente externo
+            {isExpense ? 'Externo' : 'Cliente externo'}
           </button>
         </div>
 
@@ -258,7 +266,7 @@ export default function TransactionForm(props: TransactionFormProps) {
                     set('user_id', null);
                     set('user_label', '');
                   }}
-                  aria-label="Quitar cliente"
+                  aria-label={isExpense ? 'Quitar usuario' : 'Quitar cliente'}
                 >
                   ×
                 </button>
@@ -266,12 +274,16 @@ export default function TransactionForm(props: TransactionFormProps) {
             </div>
           ) : (
             <UserAutocomplete
-              role="student"
+              role={isExpense ? 'instructor' : 'student'}
               onSelect={(u) => {
                 set('user_id', u.id);
                 set('user_label', `${u.first_name} ${u.last_name}`);
               }}
-              placeholder="Buscar estudiante por nombre"
+              placeholder={
+                isExpense
+                  ? 'Buscar instructor por nombre'
+                  : 'Buscar estudiante por nombre'
+              }
             />
           )
         ) : (
@@ -279,7 +291,11 @@ export default function TransactionForm(props: TransactionFormProps) {
             className="input"
             value={state.external_name}
             onChange={(e) => set('external_name', e.target.value)}
-            placeholder="Nombre del cliente externo"
+            placeholder={
+              isExpense
+                ? 'Nombre del proveedor o beneficiario'
+                : 'Nombre del cliente externo'
+            }
             aria-invalid={!!errors.external_name}
             disabled={readonly}
           />
@@ -341,7 +357,7 @@ export default function TransactionForm(props: TransactionFormProps) {
           value={state.description}
           onChange={(e) => set('description', e.target.value)}
           aria-invalid={!!errors.description}
-          placeholder="Ej. Mensualidad de marzo"
+          placeholder={isExpense ? 'Ej. Renta de marzo' : 'Ej. Mensualidad de marzo'}
         />
         <span className="field__error">{errors.description ?? ''}</span>
       </div>

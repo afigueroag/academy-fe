@@ -10,6 +10,7 @@ import {
   LogoutIcon,
   SettingsIcon,
   UsersIcon,
+  WalletIcon,
 } from '../brand';
 
 interface LayoutProps {
@@ -137,6 +138,17 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 >
                   <DollarIcon size={18} />
                   <span>Ventas</span>
+                </NavLink>
+              )}
+              {(me?.role === 'admin' || me?.role === 'receptionist') && (
+                <NavLink
+                  to="/gastos"
+                  className={({ isActive }) =>
+                    'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                  }
+                >
+                  <WalletIcon size={18} />
+                  <span>Gastos</span>
                 </NavLink>
               )}
               {me?.role === 'admin' && (

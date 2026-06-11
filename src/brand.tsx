@@ -479,6 +479,28 @@ export function DollarIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function WalletIcon({
+  size = 16,
+  color = 'currentColor',
+}: IconProps & { color?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M19 7 V6 C19 4.9 18.1 4 17 4 H5 C3.9 4 3 4.9 3 6 V18 C3 19.1 3.9 20 5 20 H19 C20.1 20 21 19.1 21 18 V9 C21 7.9 20.1 7 19 7 H5 C3.9 7 3 6.6 3 6" />
+      <circle cx="16.5" cy="13.5" r="1" fill={color} stroke="none" />
+    </svg>
+  );
+}
+
 export function HomeIcon({ size = 16 }: IconProps) {
   return (
     <svg

@@ -5,6 +5,7 @@ import type {
   RecurringTransactionUpdate,
   TransactionCategory,
   TransactionFrequency,
+  TransactionKind,
 } from '../types';
 import { ApiError } from '../api';
 import { SpinnerIcon } from '../brand';
@@ -91,6 +92,7 @@ function fromRecurring(r: RecurringTransactionRead): FormState {
 }
 
 interface BaseProps {
+  kind?: TransactionKind;
   onCancel: () => void;
   submitting: boolean;
   serverError: string | null;
@@ -113,6 +115,8 @@ type RecurringFormProps = CreateProps | EditProps;
 
 export default function RecurringForm(props: RecurringFormProps) {
   const { mode, onCancel, submitting, serverError, apiError } = props;
+  const kind = props.kind ?? 'sale';
+  const isExpense = kind === 'expense';
 
   const [state, setState] = useState<FormState>(() => {
     if (mode === 'edit') return fromRecurring(props.recurring);
@@ -146,7 +150,9 @@ export default function RecurringForm(props: RecurringFormProps) {
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     if (state.client_type === 'registered' && !state.user_id) {
-      next.user_id = 'Selecciona un cliente registrado';
+      next.user_id = isExpense
+        ? 'Selecciona un usuario registrado'
+        : 'Selecciona un cliente registrado';
     }
     if (state.client_type === 'external' && !state.external_name.trim()) {
       next.external_name = 'Requerido';
@@ -178,7 +184,7 @@ export default function RecurringForm(props: RecurringFormProps) {
     if (amountCents === null) return;
 
     const payload: RecurringTransactionCreate = {
-      kind: 'sale',
+      kind,
       category: state.category as TransactionCategory,
       description: state.description.trim(),
       frequency: state.frequency,
@@ -197,7 +203,7 @@ export default function RecurringForm(props: RecurringFormProps) {
     await props.onSubmit(payload);
   };
 
-  const categories = categoriesForKind('sale');
+  const categories = categoriesForKind(kind);
 
   return (
     <form id="recurring-form" onSubmit={handleSubmit} noValidate>
@@ -208,7 +214,9 @@ export default function RecurringForm(props: RecurringFormProps) {
       )}
 
       <div className="field">
-        <label className="field__label">Cliente</label>
+        <label className="field__label">
+          {isExpense ? 'Proveedor / Beneficiario' : 'Cliente'}
+        </label>
         <div className="tab-group" role="tablist" style={{ marginBottom: 8 }}>
           <button
             type="button"
@@ -222,7 +230,7 @@ export default function RecurringForm(props: RecurringFormProps) {
             }
             onClick={() => set('client_type', 'registered')}
           >
-            Cliente registrado
+            {isExpense ? 'Usuario registrado' : 'Cliente registrado'}
           </button>
           <button
             type="button"
@@ -236,7 +244,7 @@ export default function RecurringForm(props: RecurringFormProps) {
             }
             onClick={() => set('client_type', 'external')}
           >
-            Cliente externo
+            {isExpense ? 'Externo' : 'Cliente externo'}
           </button>
         </div>
 
@@ -251,19 +259,23 @@ export default function RecurringForm(props: RecurringFormProps) {
                   set('user_id', null);
                   set('user_label', '');
                 }}
-                aria-label="Quitar cliente"
+                aria-label={isExpense ? 'Quitar usuario' : 'Quitar cliente'}
               >
                 ×
               </button>
             </div>
           ) : (
             <UserAutocomplete
-              role="student"
+              role={isExpense ? 'instructor' : 'student'}
               onSelect={(u) => {
                 set('user_id', u.id);
                 set('user_label', `${u.first_name} ${u.last_name}`);
               }}
-              placeholder="Buscar estudiante por nombre"
+              placeholder={
+                isExpense
+                  ? 'Buscar instructor por nombre'
+                  : 'Buscar estudiante por nombre'
+              }
             />
           )
         ) : (
@@ -271,7 +283,11 @@ export default function RecurringForm(props: RecurringFormProps) {
             className="input"
             value={state.external_name}
             onChange={(e) => set('external_name', e.target.value)}
-            placeholder="Nombre del cliente externo"
+            placeholder={
+              isExpense
+                ? 'Nombre del proveedor o beneficiario'
+                : 'Nombre del cliente externo'
+            }
             aria-invalid={!!errors.external_name}
           />
         )}
@@ -336,7 +352,7 @@ export default function RecurringForm(props: RecurringFormProps) {
           value={state.description}
           onChange={(e) => set('description', e.target.value)}
           aria-invalid={!!errors.description}
-          placeholder="Ej. Mensualidad"
+          placeholder={isExpense ? 'Ej. Renta' : 'Ej. Mensualidad'}
         />
         <span className="field__error">{errors.description ?? ''}</span>
       </div>
@@ -363,7 +379,7 @@ export default function RecurringForm(props: RecurringFormProps) {
         {needsBillingDay && (
           <div className="field">
             <label className="field__label" htmlFor="rec-bday">
-              Día de cobro{' '}
+              {isExpense ? 'Día de pago' : 'Día de cobro'}{' '}
               <span style={{ color: 'var(--color-danger)' }}>*</span>
             </label>
             <input
