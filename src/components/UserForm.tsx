@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type {
   AcademyMe,
+  GroupPublic,
   PaymentMethod,
   UserCreate,
   UserRead,
@@ -10,6 +11,7 @@ import type {
 } from '../types';
 import { ApiError } from '../api';
 import { SpinnerIcon } from '../brand';
+import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
 import StudentExtraFields, {
@@ -150,6 +152,9 @@ export default function UserForm(props: UserFormProps) {
   const [extra, setExtra] = useState<StudentExtra>(() =>
     mode === 'edit' ? studentExtraFromUser(props.user) : EMPTY_STUDENT_EXTRA,
   );
+  const [groups, setGroups] = useState<GroupPublic[]>(() =>
+    mode === 'edit' ? props.user.groups ?? [] : [],
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [billingOpen, setBillingOpen] = useState<boolean>(
@@ -172,6 +177,7 @@ export default function UserForm(props: UserFormProps) {
     if (mode === 'edit') {
       setState(fromUser(props.user));
       setExtra(studentExtraFromUser(props.user));
+      setGroups(props.user.groups ?? []);
     }
   }, [mode, mode === 'edit' ? props.user : null]);
 
@@ -231,6 +237,7 @@ export default function UserForm(props: UserFormProps) {
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
         ...(isStudent ? studentExtraToPayload(extra) : {}),
+        ...(isStudent ? { groups } : {}),
       };
       const billing: StudentBillingSetup | undefined = isStudentCreate
         ? {
@@ -256,6 +263,7 @@ export default function UserForm(props: UserFormProps) {
         special_conditions: nullable(state.special_conditions),
         status: state.status as UserStatus,
         ...(isStudent ? studentExtraToPayload(extra) : {}),
+        ...(isStudent ? { groups } : {}),
       };
       await props.onSubmit(payload);
     }
@@ -414,6 +422,13 @@ export default function UserForm(props: UserFormProps) {
 
       {isStudent && (
         <StudentExtraFields value={extra} onChange={setExtra} idPrefix="uf" />
+      )}
+
+      {isStudent && (
+        <div className="field">
+          <span className="field__label">Grupos</span>
+          <GroupPicker value={groups} onChange={setGroups} />
+        </div>
       )}
 
       {mode === 'edit' && (

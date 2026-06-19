@@ -71,6 +71,7 @@ interface FormState {
   default_instructor_hourly_rate: string;
   default_assistant_hourly_rate: string;
   students_self_unenroll: boolean;
+  students_self_enroll: boolean;
   currency: string;
   primary_color: string;
   secondary_color: string;
@@ -106,6 +107,7 @@ function fromAcademy(a: AcademyMe): FormState {
     default_instructor_hourly_rate: moneyStr(a.default_instructor_hourly_rate),
     default_assistant_hourly_rate: moneyStr(a.default_assistant_hourly_rate),
     students_self_unenroll: a.students_self_unenroll ?? false,
+    students_self_enroll: a.students_self_enroll ?? false,
     currency: a.currency ?? '',
     primary_color: withHashOr(a.primary_color, '#6366F1'),
     secondary_color: withHashOr(a.secondary_color, '#8B5CF6'),
@@ -144,6 +146,7 @@ function toPayload(s: FormState): AcademyUpdate {
     default_instructor_hourly_rate: toCents(s.default_instructor_hourly_rate),
     default_assistant_hourly_rate: toCents(s.default_assistant_hourly_rate),
     students_self_unenroll: s.students_self_unenroll,
+    students_self_enroll: s.students_self_enroll,
     currency: s.currency.trim() || null,
     primary_color: stripHash(s.primary_color),
     secondary_color: stripHash(s.secondary_color),
@@ -371,8 +374,8 @@ export default function AcademyConfig() {
 
         <section className="config-section">
           <h3 className="form-section__title">Colores de marca</h3>
-          <div className="field--row">
-            <div className="field">
+          <div className="config-row--compact">
+            <div className="field field--color">
               <label className="field__label" htmlFor="ac-primary">
                 Primario
               </label>
@@ -384,7 +387,7 @@ export default function AcademyConfig() {
                 onChange={(e) => set('primary_color', e.target.value)}
               />
             </div>
-            <div className="field">
+            <div className="field field--color">
               <label className="field__label" htmlFor="ac-secondary">
                 Secundario
               </label>
@@ -396,7 +399,7 @@ export default function AcademyConfig() {
                 onChange={(e) => set('secondary_color', e.target.value)}
               />
             </div>
-            <div className="field">
+            <div className="field field--color">
               <label className="field__label" htmlFor="ac-accent">
                 Acento
               </label>
@@ -453,8 +456,8 @@ export default function AcademyConfig() {
 
         <section className="config-section">
           <h3 className="form-section__title">Cobros</h3>
-          <div className="field--row">
-            <div className="field">
+          <div className="config-row--compact">
+            <div className="field field--narrow">
               <label className="field__label" htmlFor="ac-billing-day">
                 Día de cobro
               </label>
@@ -472,9 +475,9 @@ export default function AcademyConfig() {
                 {errors.default_billing_day ?? ''}
               </span>
             </div>
-            <div className="field">
+            <div className="field field--narrow">
               <label className="field__label" htmlFor="ac-grace">
-                Días de pago (gracia)
+                Días de gracia
               </label>
               <input
                 id="ac-grace"
@@ -486,19 +489,13 @@ export default function AcademyConfig() {
                 onChange={(e) => set('payment_grace_days', e.target.value)}
                 aria-invalid={!!errors.payment_grace_days}
               />
-              <span className="field__hint">
-                Días tras el día de cobro para pagar sin retraso (default 7).
-              </span>
               <span className="field__error">
                 {errors.payment_grace_days ?? ''}
               </span>
             </div>
-          </div>
-
-          <div className="field--row">
-            <div className="field">
+            <div className="field field--narrow">
               <label className="field__label" htmlFor="ac-lookahead">
-                Meses de anticipación de cobros
+                Meses de anticipación
               </label>
               <input
                 id="ac-lookahead"
@@ -511,29 +508,37 @@ export default function AcademyConfig() {
                 }
               />
             </div>
-            <div className="field">
-              <label className="field__label" htmlFor="ac-weekend">
-                Si el día de cobro cae en fin de semana
-              </label>
-              <select
-                id="ac-weekend"
-                className="select"
-                value={state.weekend_billing_behavior}
-                onChange={(e) =>
-                  set(
-                    'weekend_billing_behavior',
-                    e.target.value as WeekendBillingBehavior | '',
-                  )
-                }
-              >
-                <option value="">— Sin especificar —</option>
-                {WEEKEND_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
+
+          <div className="field">
+            <span className="field__hint" style={{ marginTop: -8 }}>
+              Días de gracia: tras el día de cobro para pagar sin retraso
+              (default 7).
+            </span>
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor="ac-weekend">
+              Si el día de cobro cae en fin de semana
+            </label>
+            <select
+              id="ac-weekend"
+              className="select"
+              value={state.weekend_billing_behavior}
+              onChange={(e) =>
+                set(
+                  'weekend_billing_behavior',
+                  e.target.value as WeekendBillingBehavior | '',
+                )
+              }
+            >
+              <option value="">— Sin especificar —</option>
+              {WEEKEND_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="switch-row">
@@ -548,6 +553,27 @@ export default function AcademyConfig() {
                 type="checkbox"
                 checked={state.auto_billing_enabled}
                 onChange={(e) => set('auto_billing_enabled', e.target.checked)}
+              />
+              <span className="switch__track" aria-hidden="true" />
+              <span className="switch__thumb" aria-hidden="true" />
+            </label>
+          </div>
+
+          <div className="switch-row">
+            <div>
+              <div className="switch-row__label">
+                Permitir que el estudiante se inscriba a clases
+              </div>
+              <div className="switch-row__hint">
+                Si está desactivado, los estudiantes solo pueden ver las clases
+                sin inscribirse.
+              </div>
+            </div>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={state.students_self_enroll}
+                onChange={(e) => set('students_self_enroll', e.target.checked)}
               />
               <span className="switch__track" aria-hidden="true" />
               <span className="switch__thumb" aria-hidden="true" />

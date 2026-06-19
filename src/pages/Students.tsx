@@ -4,6 +4,9 @@ import type { Debt } from '../types';
 
 export default function Students() {
   const [debtFilter, setDebtFilter] = useState<Debt | null>(null);
+  const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<
+    number | null
+  >(null);
 
   return (
     <UsersModule
@@ -19,6 +22,8 @@ export default function Students() {
       showDebtColumns
       debtFilter={debtFilter}
       onDebtFilterChange={setDebtFilter}
+      enrollmentMonthFilter={enrollmentMonthFilter}
+      onEnrollmentMonthFilterChange={setEnrollmentMonthFilter}
     />
   );
 }

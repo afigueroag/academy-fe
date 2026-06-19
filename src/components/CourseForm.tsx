@@ -6,6 +6,7 @@ import type {
   CourseRecurrence,
   CourseStatus,
   CourseUpdate,
+  GroupPublic,
   ScheduleCreate,
   ScheduleDay,
 } from '../types';
@@ -14,6 +15,7 @@ import { SpinnerIcon, WarningIcon } from '../brand';
 import { fromCents, toCents } from '../utils/money';
 import { findFormConflicts } from '../utils/conflicts';
 import ScheduleRepeater from './ScheduleRepeater';
+import GroupPicker from './GroupPicker';
 import InstructorChecklist, {
   type InstructorRow,
 } from './InstructorChecklist';
@@ -51,6 +53,7 @@ interface FormState {
   individual_cost: string;
   schedules: ScheduleCreate[];
   instructors: InstructorRow[];
+  groups: GroupPublic[];
   status: CourseStatus;
 }
 
@@ -66,6 +69,7 @@ const EMPTY: FormState = {
   individual_cost: '',
   schedules: [],
   instructors: [],
+  groups: [],
   status: 'active',
 };
 
@@ -90,6 +94,7 @@ function fromCourse(c: CourseRead): FormState {
         link.hourly_rate !== null ? String(fromCents(link.hourly_rate)) : '',
       userEditedRate: true,
     })),
+    groups: c.groups,
     status: c.status ?? 'active',
   };
 }
@@ -264,6 +269,7 @@ export default function CourseForm(props: CourseFormProps) {
       end_date: nullable(state.end_date),
       schedules,
       instructor_links,
+      groups: state.groups,
     };
 
     if (mode === 'create') {
@@ -505,6 +511,20 @@ export default function CourseForm(props: CourseFormProps) {
           defaultAssistantRate={defaultAssistantRate}
           currency={currency}
         />
+      </section>
+
+      <section className="form-section">
+        <h3 className="form-section__title">Grupos</h3>
+        <div className="field">
+          <span className="field__hint">
+            Restringe quién puede inscribir esta clase. Sin grupos, la clase
+            queda abierta para todos.
+          </span>
+          <GroupPicker
+            value={state.groups}
+            onChange={(next) => set('groups', next)}
+          />
+        </div>
       </section>
 
       {mode === 'edit' && (

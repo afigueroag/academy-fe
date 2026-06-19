@@ -2,15 +2,28 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import InstructorCourseDetail from '../components/InstructorCourseDetail';
+import CalendarView from '../components/CalendarView';
+import DayList from '../components/DayList';
 import { useAuth } from '../auth';
-import { ApiError, getInstructorPmt, getMeHome } from '../api';
+import {
+  ApiError,
+  getInstructorPmt,
+  getMeHome,
+  listInstructorCourses,
+} from '../api';
+import { startOfWeek } from '../utils/calendar';
 import { formatMoney } from '../utils/money';
 import { labelAttendanceRole } from '../utils/attendanceLabels';
-import { EyeIcon, SpinnerIcon } from '../brand';
+import { CalendarIcon, EyeIcon, ListIcon, SpinnerIcon } from '../brand';
 import type {
   AssignedCourseRead,
+  CourseInstructorRead,
   CoursePmtRead,
 } from '../types';
+
+type ViewMode = 'calendar' | 'list';
+
+const VIEW_STORAGE_KEY = 'instructor_classes_view';
 
 interface ClassRow {
   courseId: number;
@@ -52,9 +65,23 @@ export default function InstructorClasses() {
 
   const [assigned, setAssigned] = useState<AssignedCourseRead[]>([]);
   const [byCourse, setByCourse] = useState<CoursePmtRead[]>([]);
+  const [courses, setCourses] = useState<CourseInstructorRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [panelCourse, setPanelCourse] = useState<number | null>(null);
+
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'calendar';
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    return stored === 'list' ? 'list' : 'calendar';
+  });
+  const [currentWeek, setCurrentWeek] = useState<Date>(() =>
+    startOfWeek(new Date()),
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -63,13 +90,15 @@ export default function InstructorClasses() {
     let cancelled = false;
     (async () => {
       try {
-        const [home, pmt] = await Promise.all([
+        const [home, pmt, instructorCourses] = await Promise.all([
           getMeHome(),
           getInstructorPmt(me.id, currentMonthRange()),
+          listInstructorCourses(),
         ]);
         if (cancelled) return;
         setAssigned(home.assigned_courses ?? []);
         setByCourse(pmt.by_course ?? []);
+        setCourses(instructorCourses);
         setError(null);
       } catch (err) {
         if (!cancelled) {
@@ -132,25 +161,83 @@ export default function InstructorClasses() {
     }
   };
 
+  const headerActions = (
+    <div className="view-toggle" role="tablist" aria-label="Vista">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === 'calendar'}
+        className={
+          'view-toggle__item' +
+          (view === 'calendar' ? ' view-toggle__item--active' : '')
+        }
+        onClick={() => setView('calendar')}
+      >
+        <CalendarIcon size={14} />
+        Calendario
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === 'list'}
+        className={
+          'view-toggle__item' +
+          (view === 'list' ? ' view-toggle__item--active' : '')
+        }
+        onClick={() => setView('list')}
+      >
+        <ListIcon size={14} />
+        Lista
+      </button>
+    </div>
+  );
+
   return (
-    <Layout title="Mis clases">
+    <Layout title="Mis clases" actions={headerActions}>
       {error && (
         <div className="alert" role="alert" style={{ marginBottom: 12 }}>
           {error}
         </div>
       )}
 
-      <div className="table-wrapper">
-        {loading ? (
-          <div className="loading-row">
-            <SpinnerIcon size={16} /> Cargando…
+      {view === 'calendar' ? (
+        loading ? (
+          <div className="table-wrapper" style={{ padding: 0 }}>
+            <div className="loading-row">
+              <SpinnerIcon size={16} /> Cargando clases…
+            </div>
           </div>
-        ) : rows.length === 0 ? (
+        ) : courses.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state__title">No tienes clases asignadas.</p>
           </div>
         ) : (
-          <table className="users-table">
+          <div className="calendar-layout">
+            <CalendarView
+              courses={courses}
+              currentWeek={currentWeek}
+              onWeekChange={setCurrentWeek}
+              onEventClick={(c) => setPanelCourse(c.id)}
+            />
+            <DayList
+              courses={courses}
+              currentWeek={currentWeek}
+              onCourseClick={(c) => setPanelCourse(c.id)}
+            />
+          </div>
+        )
+      ) : (
+        <div className="table-wrapper">
+          {loading ? (
+            <div className="loading-row">
+              <SpinnerIcon size={16} /> Cargando…
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="empty-state">
+              <p className="empty-state__title">No tienes clases asignadas.</p>
+            </div>
+          ) : (
+            <table className="users-table">
             <thead>
               <tr>
                 <th>Curso</th>
@@ -200,8 +287,9 @@ export default function InstructorClasses() {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {panelCourse !== null && (
         <InstructorCourseDetail

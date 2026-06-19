@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { CourseRead } from '../types';
+import type { CalendarCourse } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon } from '../brand';
 import {
   DAY_ORDER,
@@ -17,19 +17,19 @@ import {
   startOfWeek,
 } from '../utils/calendar';
 
-interface CalendarViewProps {
-  courses: CourseRead[];
+interface CalendarViewProps<T extends CalendarCourse> {
+  courses: T[];
   currentWeek: Date;
   onWeekChange: (next: Date) => void;
-  onEventClick: (course: CourseRead) => void;
+  onEventClick: (course: T) => void;
 }
 
-export default function CalendarView({
+export default function CalendarView<T extends CalendarCourse>({
   courses,
   currentWeek,
   onWeekChange,
   onEventClick,
-}: CalendarViewProps) {
+}: CalendarViewProps<T>) {
   const monday = currentWeek;
   const sunday = addDays(monday, 6);
 

@@ -65,6 +65,9 @@ interface UsersModuleProps {
   showDebtColumns?: boolean;
   debtFilter?: Debt | null;
   onDebtFilterChange?: (d: Debt | null) => void;
+  // Filtro por mes de matrícula anual (1-12). Si se pasa el handler, se muestra.
+  enrollmentMonthFilter?: number | null;
+  onEnrollmentMonthFilterChange?: (m: number | null) => void;
 }
 
 type Filter = UserStatus | 'all';
@@ -84,6 +87,21 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
   { value: 'inactive', label: 'Inactivos' },
   { value: 'all', label: 'Todos' },
+];
+
+const MONTHS_ES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
 ];
 
 const DEBT_OPTIONS: { value: Debt | ''; label: string }[] = [
@@ -167,6 +185,8 @@ export default function UsersModule(props: UsersModuleProps) {
     showDebtColumns = false,
     debtFilter = null,
     onDebtFilterChange,
+    enrollmentMonthFilter = null,
+    onEnrollmentMonthFilterChange,
   } = props;
 
   const token = getToken();
@@ -219,6 +239,7 @@ export default function UsersModule(props: UsersModuleProps) {
         status,
         search: debouncedSearch || undefined,
         debt_filter: debtFilter ?? undefined,
+        enrollment_fee_month: enrollmentMonthFilter ?? undefined,
       });
       setUsers(data);
     } catch (err) {
@@ -231,7 +252,7 @@ export default function UsersModule(props: UsersModuleProps) {
     } finally {
       setLoading(false);
     }
-  }, [role, status, debouncedSearch, debtFilter]);
+  }, [role, status, debouncedSearch, debtFilter, enrollmentMonthFilter]);
 
   const fetchActiveCount = useCallback(async () => {
     try {
@@ -388,6 +409,7 @@ export default function UsersModule(props: UsersModuleProps) {
             user_id: userId,
             amount: academy.enrollment_fee_amount,
             billing_day: 1,
+            billing_month: month,
             start_date: startDate,
             end_date: null,
             external_name: null,
@@ -620,6 +642,26 @@ export default function UsersModule(props: UsersModuleProps) {
             {DEBT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {showDebtColumns && onEnrollmentMonthFilterChange && (
+          <select
+            className="select"
+            value={enrollmentMonthFilter ?? ''}
+            onChange={(e) =>
+              onEnrollmentMonthFilterChange(
+                e.target.value ? Number(e.target.value) : null,
+              )
+            }
+            aria-label="Filtrar por mes de matrícula anual"
+            style={{ width: 'auto', maxWidth: 240 }}
+          >
+            <option value="">Mes de matrícula: todos</option>
+            {MONTHS_ES.map((label, i) => (
+              <option key={i} value={String(i + 1)}>
+                Matrícula en {label}
               </option>
             ))}
           </select>

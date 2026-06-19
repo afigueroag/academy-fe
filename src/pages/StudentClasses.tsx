@@ -10,6 +10,7 @@ import {
   unenrollMe,
 } from '../api';
 import { formatMoney } from '../utils/money';
+import { requiredGroupsLabel } from '../utils/groups';
 import { SearchIcon, SpinnerIcon } from '../brand';
 import type {
   CourseInstructorLinkPublic,
@@ -57,6 +58,7 @@ export default function StudentClasses() {
   const { me } = useAuth();
   const currency = me?.academy.currency ?? null;
   const canSelfUnenroll = me?.academy.students_self_unenroll === true;
+  const canSelfEnroll = me?.academy.students_self_enroll === true;
 
   const [courses, setCourses] = useState<CourseStudentRead[]>([]);
   const [enrolledIds, setEnrolledIds] = useState<Set<number>>(new Set());
@@ -202,6 +204,8 @@ export default function StudentClasses() {
             const isEnrolled = enrolledIds.has(c.id);
             const cost = c.individual_cost ?? 0;
             const showCost = cost > 0;
+            // No recalculamos la regla: confiamos en el booleano del backend.
+            const locked = !isEnrolled && c.can_enroll === false;
 
             return (
               <article className="course-card" key={c.id}>
@@ -224,6 +228,15 @@ export default function StudentClasses() {
                   </div>
                 )}
 
+                {locked && c.groups.length > 0 && (
+                  <div className="course-card__lock">
+                    <span className="badge badge--locked">Requiere</span>
+                    <span className="course-card__lock-text">
+                      {requiredGroupsLabel(c.groups)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="course-card__footer">
                   {isEnrolled ? (
                     canSelfUnenroll ? (
@@ -238,6 +251,17 @@ export default function StudentClasses() {
                         Darme de baja
                       </button>
                     ) : null
+                  ) : !canSelfEnroll ? (
+                    // La academia no permite auto-inscripción: solo ver la clase.
+                    null
+                  ) : locked ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled
+                    >
+                      No disponible
+                    </button>
                   ) : !c.has_capacity ? (
                     <button
                       type="button"

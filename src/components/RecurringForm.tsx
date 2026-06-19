@@ -183,6 +183,17 @@ export default function RecurringForm(props: RecurringFormProps) {
     const amountCents = toCents(state.amount);
     if (amountCents === null) return;
 
+    // Para cargos anuales (p. ej. matrícula) el mes se deriva de la fecha de
+    // inicio; lo necesita el filtro "mes de matrícula" del módulo de estudiantes.
+    const billingMonth =
+      state.frequency === 'annual'
+        ? state.start_date
+          ? Number(state.start_date.slice(5, 7))
+          : mode === 'edit'
+            ? props.recurring.billing_month ?? null
+            : null
+        : null;
+
     const payload: RecurringTransactionCreate = {
       kind,
       category: state.category as TransactionCategory,
@@ -196,6 +207,7 @@ export default function RecurringForm(props: RecurringFormProps) {
       billing_day: needsBillingDay
         ? parseInt(state.billing_day, 10) || null
         : null,
+      billing_month: billingMonth,
       start_date: state.start_date || null,
       end_date: state.end_date || null,
     };

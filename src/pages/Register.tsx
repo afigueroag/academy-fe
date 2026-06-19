@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -25,8 +25,7 @@ const ACADEMY_TYPE_OPTIONS: { value: AcademyType; label: string }[] = [
 
 const STEPS = [
   { id: 1, label: 'Academia' },
-  { id: 2, label: 'Owner' },
-  { id: 3, label: 'Plan' },
+  { id: 2, label: 'Administrador' },
 ] as const;
 
 interface FormState {
@@ -61,7 +60,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Register() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -91,7 +90,7 @@ export default function Register() {
     }
   };
 
-  const validateStep = (current: 1 | 2 | 3): boolean => {
+  const validateStep = (current: 1 | 2): boolean => {
     const next: Record<string, string> = {};
     if (current === 1) {
       if (!form.academy_name.trim()) next.academy_name = 'Requerido';
@@ -111,13 +110,13 @@ export default function Register() {
 
   const handleNext = () => {
     if (validateStep(step)) {
-      setStep((s) => (Math.min(3, s + 1) as 1 | 2 | 3));
+      setStep((s) => (Math.min(2, s + 1) as 1 | 2));
     }
   };
 
   const handleBack = () => {
     setServerError(null);
-    setStep((s) => (Math.max(1, s - 1) as 1 | 2 | 3));
+    setStep((s) => (Math.max(1, s - 1) as 1 | 2));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -130,6 +129,12 @@ export default function Register() {
     const payload: UserSignUp = {
       academy_name: form.academy_name.trim(),
       academy_type: form.academy_type as AcademyType,
+      // Requeridos por el backend. Se autodetecta la zona horaria; país por
+      // defecto MX. Ambos editables después en Configuración de la academia.
+      academy_country: 'MX',
+      academy_timezone:
+        Intl.DateTimeFormat().resolvedOptions().timeZone ||
+        'America/Mexico_City',
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       email: form.email.trim(),
@@ -199,7 +204,7 @@ export default function Register() {
 
           <h2>Crea tu academia</h2>
           <p className="auth-card__subtitle">
-            Tres pasos rápidos. Configura tu marca, tu cuenta y tu plan.
+            Dos pasos rápidos. Configura tu marca y tu cuenta.
           </p>
 
           <Stepper current={step} />
@@ -217,9 +222,6 @@ export default function Register() {
             {step === 2 && (
               <Step2 form={form} errors={errors} update={update} />
             )}
-            {step === 3 && (
-              <Step3 form={form} update={update} />
-            )}
 
             <div
               className={
@@ -236,8 +238,13 @@ export default function Register() {
                   <ArrowLeftIcon /> Volver
                 </button>
               )}
-              {step < 3 ? (
+              {/* Las `key` distintas son intencionales: sin ellas React
+                  reutiliza el mismo nodo y al pasar de paso muta el `type` de
+                  "button" a "submit" durante el mismo clic, disparando el
+                  envío del formulario. */}
+              {step < 2 ? (
                 <button
+                  key="next"
                   type="button"
                   className="btn btn--primary"
                   onClick={handleNext}
@@ -246,6 +253,7 @@ export default function Register() {
                 </button>
               ) : (
                 <button
+                  key="submit"
                   type="submit"
                   className="btn btn--primary"
                   disabled={submitting}
@@ -269,7 +277,7 @@ export default function Register() {
   );
 }
 
-function Stepper({ current }: { current: 1 | 2 | 3 }) {
+function Stepper({ current }: { current: 1 | 2 }) {
   return (
     <div className="stepper" role="list">
       {STEPS.map((s, i) => {
@@ -503,72 +511,3 @@ function Step2({ form, errors, update }: StepProps) {
   );
 }
 
-function Step3({
-  form,
-  update,
-}: {
-  form: FormState;
-  update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
-}) {
-  const plans = useMemo(
-    () => [
-      {
-        value: 'starter' as const,
-        name: 'Starter',
-        price: 'Para empezar',
-        features: [
-          'Hasta 50 alumnos',
-          '2 instructores',
-          'Pagos y asistencia',
-          'Soporte por email',
-        ],
-      },
-      {
-        value: 'professional' as const,
-        name: 'Professional',
-        price: 'Para crecer',
-        features: [
-          'Alumnos ilimitados',
-          'Instructores ilimitados',
-          'Reportes avanzados',
-          'Soporte prioritario',
-        ],
-      },
-    ],
-    [],
-  );
-
-  return (
-    <div className="plan-grid">
-      {plans.map((p) => {
-        const selected = form.academy_plan === p.value;
-        return (
-          <label
-            key={p.value}
-            className={`plan-card ${selected ? 'plan-card--selected' : ''}`}
-          >
-            <input
-              type="radio"
-              name="academy_plan"
-              value={p.value}
-              checked={selected}
-              onChange={() => update('academy_plan', p.value)}
-            />
-            <div className="plan-card__head">
-              <span className="plan-card__name">{p.name}</span>
-              <span className="plan-card__price">{p.price}</span>
-            </div>
-            <ul className="plan-card__list">
-              {p.features.map((f) => (
-                <li key={f}>
-                  <CheckIcon size={16} />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </label>
-        );
-      })}
-    </div>
-  );
-}

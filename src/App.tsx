@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Students from './pages/Students';
 import Instructors from './pages/Instructors';
 import Classes from './pages/Classes';
+import Groups from './pages/Groups';
 import Sales from './pages/Sales';
 import Gastos from './pages/Gastos';
 import AcademyConfig from './pages/AcademyConfig';
@@ -79,6 +80,14 @@ export default function App() {
         element={
           <RoleRoute allow={[...ADMIN_ROLES]}>
             <Classes />
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/groups"
+        element={
+          <RoleRoute allow={[...ADMIN_ROLES]}>
+            <Groups />
           </RoleRoute>
         }
       />

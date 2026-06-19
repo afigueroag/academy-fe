@@ -402,6 +402,42 @@ export function ChevronRightIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function ChevronUpIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 15 L12 9 L18 15" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 9 L12 15 L18 9" />
+    </svg>
+  );
+}
+
 export function MapPinIcon({ size = 16 }: IconProps) {
   return (
     <svg

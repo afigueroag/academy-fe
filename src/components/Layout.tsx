@@ -6,6 +6,7 @@ import {
   DollarIcon,
   GraduationIcon,
   HomeIcon,
+  ListIcon,
   Logo,
   LogoutIcon,
   SettingsIcon,
@@ -128,6 +129,15 @@ export default function Layout({ title, actions, children }: LayoutProps) {
               >
                 <CalendarIcon size={18} />
                 <span>Clases</span>
+              </NavLink>
+              <NavLink
+                to="/groups"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <ListIcon size={18} />
+                <span>Grupos</span>
               </NavLink>
               {(me?.role === 'admin' || me?.role === 'receptionist') && (
                 <NavLink

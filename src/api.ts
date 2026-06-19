@@ -6,14 +6,22 @@ import type {
   AttendanceRead,
   AttendanceUpdate,
   CourseCreate,
+  CourseInstructorRead,
   CourseRead,
   CourseStudentRead,
   CourseUpdate,
   EnrollmentCreate,
   EnrollmentRead,
   EnrollmentUpdate,
+  GroupCategoryCreate,
+  GroupCategoryRead,
+  GroupCategoryUpdate,
+  GroupCreate,
+  GroupRead,
+  GroupUpdate,
   HomeMe,
   HTTPValidationError,
+  ListGroupsParams,
   InstructorPmtParams,
   InstructorPmtRead,
   InviteToken,
@@ -193,6 +201,8 @@ export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
   if (params.status && params.status !== 'all') q.set('status', params.status);
   if (params.search) q.set('search', params.search);
   if (params.debt_filter) q.set('debt_filter', params.debt_filter);
+  if (params.enrollment_fee_month !== undefined)
+    q.set('enrollment_fee_month', String(params.enrollment_fee_month));
   if (params.active !== undefined) q.set('active', String(params.active));
   if (params.skip !== undefined) q.set('skip', String(params.skip));
   if (params.limit !== undefined) q.set('limit', String(params.limit));
@@ -294,6 +304,21 @@ export async function listStudentCourses(
   return (await res.json()) as CourseStudentRead[];
 }
 
+// Cursos del instructor autenticado. El backend scopea `/courses` a las clases
+// asignadas y responde con `CourseInstructorRead` (incluye `schedules`), por lo
+// que sirve para pintar el calendario del instructor.
+export async function listInstructorCourses(
+  params: { search?: string } = {},
+): Promise<CourseInstructorRead[]> {
+  const q = new URLSearchParams();
+  q.set('active', 'true');
+  q.set('status', 'active');
+  if (params.search) q.set('search', params.search);
+  const res = await authFetch(`/courses?${q.toString()}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as CourseInstructorRead[];
+}
+
 export async function getCourse(id: number): Promise<CourseRead> {
   const res = await authFetch(`/courses/${id}`);
   if (!res.ok) throw await parseError(res);
@@ -384,6 +409,82 @@ export async function deleteEnrollment(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as EnrollmentRead;
+}
+
+// ---------- Grupos ----------
+
+export async function listGroupCategories(): Promise<GroupCategoryRead[]> {
+  const res = await authFetch('/groups/categories');
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupCategoryRead[];
+}
+
+export async function getGroupCategory(id: number): Promise<GroupCategoryRead> {
+  const res = await authFetch(`/groups/categories/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupCategoryRead;
+}
+
+export async function createGroupCategory(
+  payload: GroupCategoryCreate,
+): Promise<GroupCategoryRead> {
+  const res = await authFetch('/groups/categories', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupCategoryRead;
+}
+
+export async function updateGroupCategory(
+  id: number,
+  payload: GroupCategoryUpdate,
+): Promise<GroupCategoryRead> {
+  const res = await authFetch(`/groups/categories/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupCategoryRead;
+}
+
+export async function deleteGroupCategory(id: number): Promise<void> {
+  const res = await authFetch(`/groups/categories/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+}
+
+export async function listGroups(
+  params: ListGroupsParams = {},
+): Promise<GroupRead[]> {
+  const q = new URLSearchParams();
+  if (params.category_id !== undefined)
+    q.set('category_id', String(params.category_id));
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(`/groups${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupRead[];
+}
+
+export async function createGroup(payload: GroupCreate): Promise<GroupRead> {
+  const res = await authFetch('/groups', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupRead;
+}
+
+export async function updateGroup(
+  id: number,
+  payload: GroupUpdate,
+): Promise<GroupRead> {
+  const res = await authFetch(`/groups/${id}`, { method: 'PATCH', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as GroupRead;
+}
+
+export async function deleteGroup(id: number): Promise<void> {
+  const res = await authFetch(`/groups/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
 }
 
 function txParams(params: ListTransactionsParams): string {

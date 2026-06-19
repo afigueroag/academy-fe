@@ -4,10 +4,12 @@ import {
   ApiError,
   createEnrollment,
   deleteEnrollment,
+  getUser,
   listEnrollments,
 } from '../api';
 import { PlusIcon, SpinnerIcon, TrashIcon, WarningIcon } from '../brand';
 import { findStudentConflicts, type Conflict } from '../utils/conflicts';
+import { requiredGroupsLabel, studentMeetsGroups } from '../utils/groups';
 import ConfirmModal from './ConfirmModal';
 import UserAutocomplete from './UserAutocomplete';
 
@@ -39,6 +41,8 @@ export default function EnrollmentSection({
   } | null>(null);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [studentConflicts, setStudentConflicts] = useState<Conflict[]>([]);
+  // Advertencia no bloqueante: el alumno no cumple los grupos de la clase.
+  const [groupWarning, setGroupWarning] = useState(false);
 
   const [toRemove, setToRemove] = useState<EnrollmentRead | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -77,6 +81,10 @@ export default function EnrollmentSection({
     .filter((e) => e.status === 'active' || e.status === 'waiting')
     .map((e) => e.student.id);
 
+  // El admin debe confirmar manualmente si hay conflictos de horario o si el
+  // alumno no cumple los grupos. Ninguno bloquea: solo advierte.
+  const needsConfirm = studentConflicts.length > 0 || groupWarning;
+
   const performInscribe = async (studentId: number) => {
     setInscribing(true);
     setInscribeError(null);
@@ -85,6 +93,7 @@ export default function EnrollmentSection({
       setPickerOpen(false);
       setPendingStudent(null);
       setStudentConflicts([]);
+      setGroupWarning(false);
       await fetchEnrollments();
       onCountsChanged?.();
     } catch (err) {
@@ -107,12 +116,13 @@ export default function EnrollmentSection({
     setPendingStudent({ id: u.id, name });
     setInscribeError(null);
     setStudentConflicts([]);
+    setGroupWarning(false);
     setCheckingConflicts(true);
     try {
-      const studentEnrollments = await listEnrollments({
-        student_id: u.id,
-        status: 'active',
-      });
+      const [studentEnrollments, student] = await Promise.all([
+        listEnrollments({ student_id: u.id, status: 'active' }),
+        getUser(u.id),
+      ]);
       const conflicts = findStudentConflicts({
         studentName: name,
         newCourseSchedules: course.schedules,
@@ -121,10 +131,15 @@ export default function EnrollmentSection({
         studentActiveEnrollments: studentEnrollments,
         allCourses,
       });
-      if (conflicts.length === 0) {
+      const meetsGroups = studentMeetsGroups(
+        student.groups ?? [],
+        course.groups,
+      );
+      if (conflicts.length === 0 && meetsGroups) {
         await performInscribe(u.id);
       } else {
         setStudentConflicts(conflicts);
+        setGroupWarning(!meetsGroups);
       }
     } catch (err) {
       const message =
@@ -140,6 +155,7 @@ export default function EnrollmentSection({
   const handleClearPending = () => {
     setPendingStudent(null);
     setStudentConflicts([]);
+    setGroupWarning(false);
     setInscribeError(null);
   };
 
@@ -147,6 +163,7 @@ export default function EnrollmentSection({
     setPickerOpen(false);
     setPendingStudent(null);
     setStudentConflicts([]);
+    setGroupWarning(false);
     setInscribeError(null);
   };
 
@@ -231,6 +248,20 @@ export default function EnrollmentSection({
             </div>
           )}
 
+          {pendingStudent && groupWarning && (
+            <div className="alert alert--warning" role="status">
+              <div className="alert__head">
+                <WarningIcon size={14} />
+                El alumno no cumple los grupos requeridos por la clase.
+              </div>
+              {course.groups.length > 0 && (
+                <ul className="alert__list">
+                  <li>Requiere: {requiredGroupsLabel(course.groups)}</li>
+                </ul>
+              )}
+            </div>
+          )}
+
           {!pendingStudent && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -261,7 +292,7 @@ export default function EnrollmentSection({
                 gap: 8,
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                marginTop: studentConflicts.length > 0 ? 0 : 4,
+                marginTop: needsConfirm ? 0 : 4,
               }}
             >
               <span className="pill">{pendingStudent.name}</span>
@@ -270,10 +301,10 @@ export default function EnrollmentSection({
                   className="loading-row"
                   style={{ padding: 0, gap: 6 }}
                 >
-                  <SpinnerIcon size={14} /> Verificando conflictos…
+                  <SpinnerIcon size={14} /> Verificando…
                 </span>
               ) : (
-                studentConflicts.length > 0 && (
+                needsConfirm && (
                   <>
                     <button
                       type="button"
@@ -295,7 +326,7 @@ export default function EnrollmentSection({
                   </>
                 )
               )}
-              {inscribing && studentConflicts.length === 0 && (
+              {inscribing && !needsConfirm && (
                 <span
                   className="loading-row"
                   style={{ padding: 0, gap: 6 }}

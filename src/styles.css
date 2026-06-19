@@ -2869,6 +2869,38 @@ button {
   padding-top: 0;
 }
 
+/* Fila compacta para campos chicos (números, colores): se alinean en línea
+   y hacen wrap en pantallas angostas, en vez de ocupar media fila cada uno. */
+.config-row--compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 24px;
+  margin-bottom: 16px;
+}
+
+.config-row--compact .field {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+/* Input numérico angosto (día, días de gracia, meses…). */
+.field--narrow .input {
+  width: 110px;
+}
+
+/* Campo de color en línea: etiqueta + muestra pequeña. */
+.field--color {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.field--color .input[type="color"] {
+  width: 52px;
+  height: 36px;
+}
+
 /* ---------- Instructor: Inicio ---------- */
 
 .home-classes-section,
@@ -3068,4 +3100,254 @@ button {
 .attendance-matrix__pct {
   font-weight: 600;
   color: var(--color-text);
+}
+
+/* ---------- Grupos (módulo) ---------- */
+
+.empty-state__hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 360px;
+  margin-inline: auto;
+}
+
+.group-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .group-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.group-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-category-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.group-category-item:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+}
+
+.group-category-item--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+}
+
+.group-category-item__name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.group-category-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.group-category-item__count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.badge--ordinal {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.badge--qualitative {
+  background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
+  color: var(--color-text-muted);
+}
+
+.group-detail {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 20px;
+}
+
+.group-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.group-detail__title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.group-detail__subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
+}
+
+.group-detail__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn:disabled:hover {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.group-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.group-row__name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.group-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ---------- Selector de grupos (GroupPicker) ---------- */
+
+.group-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.group-picker__category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-picker__category-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.group-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.group-chip:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+}
+
+.group-chip--selected {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.group-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.group-chip--readonly {
+  cursor: default;
+  font-weight: 500;
+}
+
+.group-chip--readonly:hover {
+  border-color: var(--color-border);
+}
+
+/* ---------- Bloqueo por grupos (vista del alumno) ---------- */
+
+.badge--locked {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.course-card__lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.course-card__lock-text {
+  font-size: 13px;
+  color: var(--color-text-muted);
 }

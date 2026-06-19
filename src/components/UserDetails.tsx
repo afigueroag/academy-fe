@@ -8,6 +8,7 @@ import type {
   UserRole,
 } from '../types';
 import { StatusBadge, TransactionStatusBadge } from './Badges';
+import { GroupChips } from './GroupPicker';
 import { CheckIcon, PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../brand';
 import ConfirmModal from './ConfirmModal';
 import InstructorPaySection from './InstructorPaySection';
@@ -227,6 +228,15 @@ export default function UserDetails({
                     )}`
                   : null
               }
+            />
+            <Item
+              label="Grupos"
+              value={
+                user.groups && user.groups.length > 0 ? (
+                  <GroupChips groups={user.groups} />
+                ) : null
+              }
+              full
             />
           </>
         )}

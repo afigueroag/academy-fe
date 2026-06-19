@@ -86,6 +86,9 @@ export interface UserSignUp {
   last_name: string;
   academy_name: string;
   academy_type: AcademyType;
+  // Requeridos por el backend; editables luego en Configuración.
+  academy_country: string;
+  academy_timezone: string;
   academy_primary_color: string | null;
   academy_secondary_color: string | null;
   academy_accent_color: string | null;
@@ -108,6 +111,9 @@ export interface AcademyMe {
   default_instructor_hourly_rate: number | null;
   default_assistant_hourly_rate: number | null;
   students_self_unenroll: boolean | null;
+  // Si la academia permite que el estudiante se inscriba a clases por sí mismo.
+  // Default backend: false (solo el admin inscribe).
+  students_self_enroll: boolean | null;
   currency: string | null;
   primary_color: string | null;
   secondary_color: string | null;
@@ -135,6 +141,7 @@ export interface AcademyUpdate {
   default_instructor_hourly_rate?: number | null;
   default_assistant_hourly_rate?: number | null;
   students_self_unenroll?: boolean | null;
+  students_self_enroll?: boolean | null;
   currency?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
@@ -155,6 +162,7 @@ export interface AcademyPublic {
   id: number;
   name: string;
   type: AcademyType;
+  students_self_enroll?: boolean | null;
 }
 
 export interface UserMe {
@@ -211,21 +219,69 @@ export interface UserRead {
   next_due_date: string | null;
   next_due_amount: number | null;
   role_consecutive: number; // número de estudiante (BE ya lo expone)
-  // Grupos a los que pertenece el alumno (puede pertenecer a varios). El BE lo
-  // expone como lista; hoy aún no está en openapi.json. Ver STUDENTS_TABLE_BACKEND_PROMPT.md.
-  groups?: UserGroup[] | null;
+  // Grupos a los que pertenece el alumno (puede pertenecer a varios, incluso de
+  // la misma categoría). Ver GroupPublic.
+  groups?: GroupPublic[] | null;
   // Montos activos de la tabla (cents); el BE ya los expone (nullable).
   tuition_amount: number | null; // costo mensualidad activa (cents)
   enrollment_fee_amount: number | null; // costo matrícula anual activa (cents)
 }
 
-export interface UserGroup {
+// ---------- Grupos ----------
+// Modelo de dos niveles: una Categoría (is_ordinal) contiene varios Grupos.
+// `is_ordinal=false` → grupo cualitativo (rank no aplica). `is_ordinal=true` →
+// grupo ordinal (importa el orden: cada grupo tiene rank).
+
+export interface GroupCategoryPublic {
   id: number;
   name: string;
-  // Para grupos ordinales (p. ej. cintas de karate) el orden importa en algunas
-  // funciones; los cualitativos (judo, taekwondo) no lo usan. Pendiente en BE;
-  // la UI hoy solo muestra el nombre.
-  order?: number | null;
+  is_ordinal: boolean;
+}
+
+export interface GroupPublic {
+  id: number;
+  name: string;
+  category_id: number;
+  rank: number | null;
+  category: GroupCategoryPublic; // categoría anidada (úsala para is_ordinal/nombre)
+}
+
+// En openapi.json GroupRead es idéntico a GroupPublic (incluye `category`).
+export type GroupRead = GroupPublic;
+
+export interface GroupCreate {
+  name: string;
+  category_id: number;
+  rank?: number | null;
+}
+
+export interface GroupUpdate {
+  name: string;
+  category_id: number;
+  rank?: number | null;
+}
+
+export interface GroupCategoryRead {
+  id: number;
+  name: string;
+  is_ordinal: boolean;
+  groups: GroupRead[]; // grupos anidados
+}
+
+export interface GroupCategoryCreate {
+  name: string;
+  is_ordinal?: boolean | null;
+}
+
+export interface GroupCategoryUpdate {
+  name: string;
+  is_ordinal?: boolean | null;
+}
+
+export interface ListGroupsParams {
+  category_id?: number;
+  skip?: number;
+  limit?: number;
 }
 
 export interface UserCreate {
@@ -258,6 +314,7 @@ export interface UserCreate {
   emergency_contact_2_name?: string | null;
   emergency_contact_2_phone?: string | null;
   emergency_contact_2_relationship?: string | null;
+  groups?: GroupPublic[];
 }
 
 export interface UserInvite {
@@ -296,6 +353,7 @@ export interface UserUpdate {
   emergency_contact_2_name?: string | null;
   emergency_contact_2_phone?: string | null;
   emergency_contact_2_relationship?: string | null;
+  groups?: GroupPublic[];
 }
 
 export interface UserPublic {
@@ -324,6 +382,8 @@ export interface ListUsersParams {
   status?: UserStatus | 'all';
   search?: string;
   debt_filter?: Debt;
+  // Mes (1-12): devuelve estudiantes con matrícula anual programada ese mes.
+  enrollment_fee_month?: number;
   active?: boolean;
   skip?: number;
   limit?: number;
@@ -387,6 +447,9 @@ export interface RecurringTransactionCreate {
   external_name: string | null;
   course_id: number | null;
   billing_day: number | null;
+  // Mes (1-12) del cargo para frecuencias anuales (p. ej. matrícula anual).
+  // Lo usa el filtro "mes de matrícula" del módulo de estudiantes.
+  billing_month?: number | null;
   start_date: string | null;
   end_date: string | null;
 }
@@ -483,6 +546,22 @@ export interface CourseRead {
   end_date: string | null;
   schedules: ScheduleCreate[];
   instructor_links: CourseInstructorLinkRead[];
+  groups: GroupPublic[];
+}
+
+// Forma mínima que necesita el calendario semanal. Tanto `CourseRead` (admin)
+// como `CourseInstructorRead` (instructor) son asignables a este tipo, lo que
+// permite reutilizar CalendarView/DayList con el rol que sea.
+export interface CalendarCourse {
+  id: number;
+  name: string;
+  location?: string | null;
+  recurrence: CourseRecurrence | null;
+  duration_minutes: number;
+  start_date: string | null;
+  end_date: string | null;
+  schedules: { schedule_day: ScheduleDay; schedule_time: string }[];
+  instructor_links: { type: InstructorType; instructor: UserPublic }[];
 }
 
 export interface CourseCreate {
@@ -498,6 +577,8 @@ export interface CourseCreate {
   end_date: string | null;
   schedules: ScheduleCreate[];
   instructor_links: CourseInstructorLinkCreate[];
+  // Opcional en el contrato (default []); se llena en Fase 2 desde el GroupPicker.
+  groups?: GroupPublic[];
 }
 
 export type CourseUpdate = CourseCreate;
@@ -516,6 +597,10 @@ export interface CourseStudentRead {
   schedules: Schedule[];
   instructor_links: CourseInstructorLinkPublic[];
   has_capacity: boolean;
+  // Calculado por el backend: si el alumno cumple las reglas de grupos de la clase.
+  can_enroll: boolean;
+  // Grupos requeridos por la clase (para mostrar el motivo del bloqueo).
+  groups: GroupPublic[];
 }
 
 export interface ListCoursesParams {

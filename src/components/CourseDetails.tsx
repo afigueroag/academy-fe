@@ -1,6 +1,7 @@
 import type { CourseRead, ScheduleDay } from '../types';
 import { formatMoney } from '../utils/money';
 import { CourseStatusBadge } from './Badges';
+import { GroupChips } from './GroupPicker';
 import EnrollmentSection from './EnrollmentSection';
 import SessionsSection from './SessionsSection';
 
@@ -143,6 +144,20 @@ export default function CourseDetails({
               course.individual_cost !== null
                 ? formatMoney(course.individual_cost, currency)
                 : null
+            }
+          />
+        </div>
+      </section>
+
+      <section className="form-section">
+        <h3 className="form-section__title">Grupos</h3>
+        <div className="detail-list">
+          <Item
+            label="Grupos requeridos"
+            value={
+              course.groups.length === 0 ? null : (
+                <GroupChips groups={course.groups} />
+              )
             }
           />
         </div>

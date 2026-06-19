@@ -1,10 +1,10 @@
-import type { CourseRead, ScheduleDay } from '../types';
+import type { CalendarCourse, ScheduleDay } from '../types';
 
 export const CALENDAR_DEFAULT_START_HOUR = 8;
 export const CALENDAR_DEFAULT_END_HOUR = 18;
 export const HOUR_PX = 50;
 
-export function computeHourRange(events: CalendarEvent[]): {
+export function computeHourRange(events: CalendarEvent<CalendarCourse>[]): {
   startHour: number;
   endHour: number;
 } {
@@ -139,21 +139,21 @@ export function formatTodayHeading(date: Date): string {
   return `Hoy — ${long}`;
 }
 
-export interface CalendarEvent {
-  course: CourseRead;
+export interface CalendarEvent<T extends CalendarCourse = CalendarCourse> {
+  course: T;
   scheduleIndex: number;
   scheduleDay: ScheduleDay;
   startMin: number;
   durationMin: number;
 }
 
-export function buildWeekEvents(
-  courses: CourseRead[],
+export function buildWeekEvents<T extends CalendarCourse>(
+  courses: T[],
   monday: Date,
-): CalendarEvent[] {
+): CalendarEvent<T>[] {
   const weekEnd = addDays(monday, 6);
   weekEnd.setHours(23, 59, 59, 999);
-  const events: CalendarEvent[] = [];
+  const events: CalendarEvent<T>[] = [];
   for (const c of courses) {
     if (c.recurrence === 'one_time') {
       if (!c.start_date) continue;
@@ -191,10 +191,10 @@ export function buildWeekEvents(
   return events;
 }
 
-export function groupEventsByDay(
-  events: CalendarEvent[],
-): Record<ScheduleDay, CalendarEvent[]> {
-  const map: Record<ScheduleDay, CalendarEvent[]> = {
+export function groupEventsByDay<T extends CalendarCourse>(
+  events: CalendarEvent<T>[],
+): Record<ScheduleDay, CalendarEvent<T>[]> {
+  const map: Record<ScheduleDay, CalendarEvent<T>[]> = {
     monday: [],
     tuesday: [],
     wednesday: [],
@@ -210,17 +210,18 @@ export function groupEventsByDay(
   return map;
 }
 
-export interface PositionedEvent extends CalendarEvent {
+export interface PositionedEvent<T extends CalendarCourse = CalendarCourse>
+  extends CalendarEvent<T> {
   topPx: number;
   heightPx: number;
   col: number;
   totalCols: number;
 }
 
-export function layoutDayEvents(
-  events: CalendarEvent[],
+export function layoutDayEvents<T extends CalendarCourse>(
+  events: CalendarEvent<T>[],
   startHour: number = CALENDAR_DEFAULT_START_HOUR,
-): PositionedEvent[] {
+): PositionedEvent<T>[] {
   if (events.length === 0) return [];
   const sorted = [...events].sort((a, b) => a.startMin - b.startMin);
 

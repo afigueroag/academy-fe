@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { CourseRead, ScheduleDay } from '../types';
+import type { CalendarCourse, ScheduleDay } from '../types';
 import {
   DAY_FULL_LABEL,
   DAY_ORDER,
@@ -10,10 +10,10 @@ import {
   isSameDate,
 } from '../utils/calendar';
 
-interface DayListProps {
-  courses: CourseRead[];
+interface DayListProps<T extends CalendarCourse> {
+  courses: T[];
   currentWeek: Date;
-  onCourseClick: (course: CourseRead) => void;
+  onCourseClick: (course: T) => void;
 }
 
 function minutesToHHmm(min: number): string {
@@ -22,11 +22,11 @@ function minutesToHHmm(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-export default function DayList({
+export default function DayList<T extends CalendarCourse>({
   courses,
   currentWeek,
   onCourseClick,
-}: DayListProps) {
+}: DayListProps<T>) {
   const [onlyToday, setOnlyToday] = useState(false);
 
   const today = useMemo(() => {
