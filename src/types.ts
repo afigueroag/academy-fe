@@ -246,8 +246,22 @@ export interface GroupPublic {
   category: GroupCategoryPublic; // categoría anidada (úsala para is_ordinal/nombre)
 }
 
-// En openapi.json GroupRead es idéntico a GroupPublic (incluye `category`).
-export type GroupRead = GroupPublic;
+// En openapi.json GroupRead es GroupPublic + `academy_id` (opcional). Se expone
+// en lectura para poder reenviarlo en el payload de escritura de cursos (Group).
+export interface GroupRead extends GroupPublic {
+  academy_id?: number | null;
+}
+
+// Forma de grupo que espera el backend al crear/actualizar cursos. A diferencia
+// de la lectura (GroupPublic/GroupRead), no lleva `category` anidada y `academy_id`
+// es requerido. Se construye desde el GroupPicker arrastrando el academy_id del grupo.
+export interface Group {
+  id?: number | null;
+  name: string;
+  category_id: number;
+  rank?: number | null;
+  academy_id: number | null;
+}
 
 export interface GroupCreate {
   name: string;
@@ -577,8 +591,9 @@ export interface CourseCreate {
   end_date: string | null;
   schedules: ScheduleCreate[];
   instructor_links: CourseInstructorLinkCreate[];
-  // Opcional en el contrato (default []); se llena en Fase 2 desde el GroupPicker.
-  groups?: GroupPublic[];
+  // Opcional en el contrato (default []); se llena desde el GroupPicker. Usa el
+  // tipo de escritura `Group` (incluye academy_id), no GroupPublic.
+  groups?: Group[];
 }
 
 export type CourseUpdate = CourseCreate;

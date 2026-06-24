@@ -6,7 +6,7 @@ import type {
   CourseRecurrence,
   CourseStatus,
   CourseUpdate,
-  GroupPublic,
+  GroupRead,
   ScheduleCreate,
   ScheduleDay,
 } from '../types';
@@ -53,7 +53,7 @@ interface FormState {
   individual_cost: string;
   schedules: ScheduleCreate[];
   instructors: InstructorRow[];
-  groups: GroupPublic[];
+  groups: GroupRead[];
   status: CourseStatus;
 }
 
@@ -269,7 +269,15 @@ export default function CourseForm(props: CourseFormProps) {
       end_date: nullable(state.end_date),
       schedules,
       instructor_links,
-      groups: state.groups,
+      // Mapea la forma de lectura (GroupRead, con `category`) a la de escritura
+      // (Group, con academy_id) que esperan CourseCreate/CourseUpdate.
+      groups: state.groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        category_id: g.category_id,
+        rank: g.rank,
+        academy_id: g.academy_id ?? null,
+      })),
     };
 
     if (mode === 'create') {

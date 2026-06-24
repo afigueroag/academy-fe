@@ -16,8 +16,8 @@ function sortGroups(groups: GroupRead[], isOrdinal: boolean): GroupRead[] {
 }
 
 interface GroupPickerProps {
-  value: GroupPublic[];
-  onChange: (groups: GroupPublic[]) => void;
+  value: GroupRead[];
+  onChange: (groups: GroupRead[]) => void;
 }
 
 // Selector reutilizable de grupos: carga categorías+grupos y los presenta como
@@ -59,11 +59,12 @@ export default function GroupPicker({ value, onChange }: GroupPickerProps) {
     if (selectedIds.has(g.id)) {
       onChange(value.filter((x) => x.id !== g.id));
     } else {
-      const picked: GroupPublic = {
+      const picked: GroupRead = {
         id: g.id,
         name: g.name,
         category_id: cat.id,
         rank: g.rank,
+        academy_id: g.academy_id ?? null,
         category: { id: cat.id, name: cat.name, is_ordinal: cat.is_ordinal },
       };
       onChange([...value, picked]);
