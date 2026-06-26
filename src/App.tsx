@@ -7,6 +7,7 @@ import Classes from './pages/Classes';
 import Groups from './pages/Groups';
 import Sales from './pages/Sales';
 import Gastos from './pages/Gastos';
+import Dashboard from './pages/Dashboard';
 import AcademyConfig from './pages/AcademyConfig';
 import Invite from './pages/Invite';
 import StudentHome from './pages/StudentHome';
@@ -72,6 +73,14 @@ export default function App() {
         element={
           <RoleRoute allow={['admin', 'receptionist']}>
             <Gastos />
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <RoleRoute allow={['admin']}>
+            <Dashboard />
           </RoleRoute>
         }
       />

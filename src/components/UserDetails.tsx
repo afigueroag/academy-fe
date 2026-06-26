@@ -13,6 +13,7 @@ import { CheckIcon, PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../bran
 import ConfirmModal from './ConfirmModal';
 import InstructorPaySection from './InstructorPaySection';
 import StudentAttendanceSection from './StudentAttendanceSection';
+import UserDocumentsSection from './UserDocumentsSection';
 import {
   ApiError,
   deleteRecurringTransaction,
@@ -437,6 +438,8 @@ export default function UserDetails({
       {isInstructor && (
         <InstructorPaySection instructorId={user.id} currency={currency} />
       )}
+
+      <UserDocumentsSection userId={user.id} editable={false} />
 
       <ConfirmModal
         open={!!toDeactivate}

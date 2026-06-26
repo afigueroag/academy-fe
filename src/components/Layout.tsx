@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../auth';
 import {
   CalendarIcon,
+  ChartIcon,
   DollarIcon,
   GraduationIcon,
   HomeIcon,
@@ -159,6 +160,17 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 >
                   <WalletIcon size={18} />
                   <span>Gastos</span>
+                </NavLink>
+              )}
+              {me?.role === 'admin' && (
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                  }
+                >
+                  <ChartIcon size={18} />
+                  <span>Finanzas</span>
                 </NavLink>
               )}
               {me?.role === 'admin' && (

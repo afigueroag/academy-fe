@@ -10,9 +10,16 @@ import type {
   CourseRead,
   CourseStudentRead,
   CourseUpdate,
+  DocumentCategory,
+  DocumentDownload,
+  DocumentRead,
+  DocumentVisibilityUpdate,
   EnrollmentCreate,
   EnrollmentRead,
   EnrollmentUpdate,
+  FinanceExpensesRead,
+  FinanceIncomeRead,
+  FinanceOverviewRead,
   GroupCategoryCreate,
   GroupCategoryRead,
   GroupCategoryUpdate,
@@ -137,8 +144,13 @@ async function authFetch(path: string, opts: AuthFetchOptions = {}): Promise<Res
   };
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify(opts.body);
+    if (opts.body instanceof FormData) {
+      // No fijar Content-Type: el navegador añade el boundary del multipart.
+      body = opts.body;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(opts.body);
+    }
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -709,6 +721,95 @@ export async function getCourseAttendanceMatrix(
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as AttendanceMatrixRead;
+}
+
+// ---------- Documentos de usuario ----------
+
+export async function listUserDocuments(
+  userId: number,
+): Promise<DocumentRead[]> {
+  const res = await authFetch(`/documents/users/${userId}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DocumentRead[];
+}
+
+export async function uploadUserDocument(
+  userId: number,
+  category: DocumentCategory,
+  file: File,
+): Promise<DocumentRead> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await authFetch(
+    `/documents/users/${userId}?category=${encodeURIComponent(category)}`,
+    { method: 'POST', body: form },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DocumentRead;
+}
+
+export async function getDocumentDownload(
+  docId: number,
+): Promise<DocumentDownload> {
+  const res = await authFetch(`/documents/users/${docId}/download`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DocumentDownload;
+}
+
+export async function updateDocumentVisibility(
+  docId: number,
+  payload: DocumentVisibilityUpdate,
+): Promise<DocumentRead> {
+  const res = await authFetch(`/documents/users/${docId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DocumentRead;
+}
+
+export async function deleteDocument(docId: number): Promise<DocumentRead> {
+  const res = await authFetch(`/documents/users/${docId}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DocumentRead;
+}
+
+// ---------- Finanzas (dashboards) ----------
+// Solo lectura. month (1-12), year (>=2025). No se envía group_category_id: el
+// desglose de ingresos es por usuario, no por grupo.
+
+function dashboardQuery(month: number, year: number): string {
+  const q = new URLSearchParams();
+  q.set('month', String(month));
+  q.set('year', String(year));
+  return q.toString();
+}
+
+export async function getFinanceOverview(
+  month: number,
+  year: number,
+): Promise<FinanceOverviewRead> {
+  const res = await authFetch(`/dashboards/overview?${dashboardQuery(month, year)}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as FinanceOverviewRead;
+}
+
+export async function getFinanceIncome(
+  month: number,
+  year: number,
+): Promise<FinanceIncomeRead> {
+  const res = await authFetch(`/dashboards/income?${dashboardQuery(month, year)}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as FinanceIncomeRead;
+}
+
+export async function getFinanceExpenses(
+  month: number,
+  year: number,
+): Promise<FinanceExpensesRead> {
+  const res = await authFetch(`/dashboards/expenses?${dashboardQuery(month, year)}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as FinanceExpensesRead;
 }
 
 export async function getInstructorPmt(

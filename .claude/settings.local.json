@@ -12,7 +12,8 @@
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(o.paths['/users/{id}/instructor-pmt'], null, 2\\)\\);\")",
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(o.components.schemas['CoursePmtRead'], null, 2\\)\\);\")",
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(o.components.schemas['SessionCreate'], null, 2\\)\\);\")",
-      "Bash(node -e \"const j=require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); const paths=Object.keys\\(j.paths\\).filter\\(p=>p.includes\\('attendance'\\)||p.includes\\('instructor-pmt'\\)\\); console.log\\(JSON.stringify\\(paths,null,2\\)\\); for\\(const p of paths\\){console.log\\('---',p,'---'\\); console.log\\(JSON.stringify\\(j.paths[p],null,2\\).slice\\(0,2000\\)\\);}\")"
+      "Bash(node -e \"const j=require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); const paths=Object.keys\\(j.paths\\).filter\\(p=>p.includes\\('attendance'\\)||p.includes\\('instructor-pmt'\\)\\); console.log\\(JSON.stringify\\(paths,null,2\\)\\); for\\(const p of paths\\){console.log\\('---',p,'---'\\); console.log\\(JSON.stringify\\(j.paths[p],null,2\\).slice\\(0,2000\\)\\);}\")",
+      "Bash(node -e ' *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\afigu\\repos\\academy-fe\\src\\components"

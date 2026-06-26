@@ -819,3 +819,151 @@ export interface AttendanceMatrixRead {
   sessions: string[]; // ISO datetimes, asc
   students: StudentAttendanceRow[];
 }
+
+// ---------- Documentos ----------
+
+export type DocumentCategory =
+  | 'contract'
+  | 'certificate'
+  | 'id_document'
+  | 'medical'
+  | 'other';
+
+// `private`: lo ven el propio usuario y la administración (cosas personales).
+// `academy`: lo ve toda la academia (cosas públicas, ej. certificados).
+export type DocumentVisibility = 'private' | 'academy';
+
+export interface DocumentRead {
+  id: number;
+  category: DocumentCategory;
+  visibility: DocumentVisibility;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  blob_path: string;
+  uploaded_by_id: number;
+}
+
+export interface DocumentDownload {
+  url: string;
+  expires_in: number;
+}
+
+export interface DocumentVisibilityUpdate {
+  visibility: DocumentVisibility;
+}
+
+// ---------- Finanzas (dashboards) ----------
+// Derivados de openapi.json (schemas Finance*). Solo lectura: el backend ya
+// agrega totales/variaciones; el frontend solo pinta. Montos en cents.
+
+export interface KpiValue {
+  value: number;
+  prev_value: number;
+  delta_pct: number | null;
+}
+
+export interface CategoryBreakdown {
+  category: TransactionCategory;
+  amount: number;
+  count: number;
+  pct: number;
+}
+
+export interface MethodBreakdown {
+  payment_method: PaymentMethod;
+  amount: number;
+  count: number;
+  pct: number;
+}
+
+export interface UserBreakdown {
+  user: string;
+  amount: number;
+  count: number;
+  pct: number;
+}
+
+export interface IncomeMonthStacked {
+  month: string;
+  by_category: TransactionCategory;
+  total: number;
+}
+
+export interface MonthOverview {
+  income: number;
+  expense: number;
+  net_profit: number;
+}
+
+export interface PnL {
+  service_income: number;
+  cogs: number;
+  gross_profit: number;
+  operating_expenses: number;
+  operating_profit: number;
+  other_income: number;
+  other_expense: number;
+  net_profit: number;
+  margin: number;
+}
+
+export interface UpcomingPayment {
+  id: number;
+  description: string;
+  date: string;
+  amount: number;
+  kind: TransactionKind;
+  status: TransactionStatus;
+}
+
+export interface ExpenseBudget {
+  scheduled_total: number;
+  used_total: number;
+  used_pct: number;
+}
+
+export interface FinanceOverviewKpis {
+  total_income: KpiValue;
+  total_expense: KpiValue;
+  net_profit: KpiValue;
+  profit_margin: KpiValue;
+}
+
+export interface FinanceOverviewRead {
+  kpis: FinanceOverviewKpis;
+  income_by_category: CategoryBreakdown[];
+  month_overview: MonthOverview;
+  pnl: PnL;
+  recent_expenses: TransactionRead[];
+  upcoming_payments: UpcomingPayment[];
+}
+
+export interface FinanceIncomeKpis {
+  total_income: KpiValue;
+  transaction_count: KpiValue;
+  avg_daily: KpiValue;
+  ytd_income: KpiValue;
+}
+
+export interface FinanceIncomeRead {
+  kpis: FinanceIncomeKpis;
+  by_month: IncomeMonthStacked[];
+  by_category: CategoryBreakdown[];
+  by_user: UserBreakdown[];
+  by_payment_method: MethodBreakdown[];
+}
+
+export interface FinanceExpensesKpis {
+  total_expense: KpiValue;
+  transaction_count: KpiValue;
+  avg_daily: KpiValue;
+  budget: ExpenseBudget;
+}
+
+export interface FinanceExpensesRead {
+  kpis: FinanceExpensesKpis;
+  by_category: CategoryBreakdown[];
+  by_payment_method: MethodBreakdown[];
+  recent: TransactionRead[];
+}

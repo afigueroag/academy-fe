@@ -14,6 +14,7 @@ import { SpinnerIcon } from '../brand';
 import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
+import UserDocumentsSection from './UserDocumentsSection';
 import StudentExtraFields, {
   EMPTY_STUDENT_EXTRA,
   studentExtraFromUser,
@@ -603,6 +604,10 @@ export default function UserForm(props: UserFormProps) {
             )}
           </div>
         </div>
+      )}
+
+      {mode === 'edit' && (
+        <UserDocumentsSection userId={props.user.id} editable />
       )}
 
       <div className="form-actions form-actions--end" style={{ marginTop: 8 }}>
