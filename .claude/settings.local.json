@@ -13,7 +13,12 @@
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(o.components.schemas['CoursePmtRead'], null, 2\\)\\);\")",
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); console.log\\(JSON.stringify\\(o.components.schemas['SessionCreate'], null, 2\\)\\);\")",
       "Bash(node -e \"const j=require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); const paths=Object.keys\\(j.paths\\).filter\\(p=>p.includes\\('attendance'\\)||p.includes\\('instructor-pmt'\\)\\); console.log\\(JSON.stringify\\(paths,null,2\\)\\); for\\(const p of paths\\){console.log\\('---',p,'---'\\); console.log\\(JSON.stringify\\(j.paths[p],null,2\\).slice\\(0,2000\\)\\);}\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(python -c \"import json;json.dump\\(json.load\\(open\\('openapi.json'\\)\\),open\\('/c/Users/afigu/AppData/Local/Temp/claude/c--Users-afigu-repos-academy-fe/892cd4e8-ecf3-453b-8d5f-407a6ea92921/scratchpad/openapi_pretty.json','w'\\),indent=2,ensure_ascii=False\\)\")",
+      "Read(//c/Users/afigu/AppData/Local/Temp/claude/c--Users-afigu-repos-academy-fe/892cd4e8-ecf3-453b-8d5f-407a6ea92921/scratchpad/**)",
+      "Bash(python -c \"import json,os; d=r'C:\\\\Users\\\\afigu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-afigu-repos-academy-fe\\\\892cd4e8-ecf3-453b-8d5f-407a6ea92921\\\\scratchpad'; os.makedirs\\(d,exist_ok=True\\); json.dump\\(json.load\\(open\\('openapi.json',encoding='utf-8'\\)\\),open\\(os.path.join\\(d,'openapi_pretty.json'\\),'w',encoding='utf-8'\\),indent=2,ensure_ascii=False\\); print\\('ok'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,1\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\afigu\\repos\\academy-fe\\src\\components"

@@ -9,9 +9,10 @@ import type {
   TransactionUpdate,
 } from '../types';
 import { ApiError } from '../api';
+import { useAuth } from '../auth';
 import { SpinnerIcon } from '../brand';
 import UserAutocomplete from './UserAutocomplete';
-import { fromCents, toCents } from '../utils/money';
+import { formatMoney, fromCents, toCents } from '../utils/money';
 import {
   categoriesForKind,
   labelPaymentMethod,
@@ -34,6 +35,8 @@ const STATUS_OPTIONS: TransactionStatus[] = [
   'paid',
 ];
 
+type DiscountKind = 'none' | 'fixed' | 'percentage';
+
 interface FormState {
   client_type: 'registered' | 'external';
   user_id: number | null;
@@ -41,7 +44,11 @@ interface FormState {
   external_name: string;
   category: TransactionCategory | '';
   description: string;
-  amount: string;
+  gross_amount: string;
+  discount_kind: DiscountKind;
+  // Valor del descuento: monto en moneda si es fijo, porcentaje (0–100) si lo es.
+  discount_value: string;
+  discount_description: string;
   transaction_date: string;
   status: TransactionStatus;
   paid_date: string;
@@ -59,7 +66,10 @@ const EMPTY = (): FormState => ({
   external_name: '',
   category: '',
   description: '',
-  amount: '',
+  gross_amount: '',
+  discount_kind: 'none',
+  discount_value: '',
+  discount_description: '',
   transaction_date: todayIso(),
   status: 'pending',
   paid_date: '',
@@ -70,6 +80,18 @@ const EMPTY = (): FormState => ({
 
 function fromTransaction(tx: TransactionRead): FormState {
   const isRegistered = tx.user_id !== null;
+  const discount_kind: DiscountKind =
+    tx.discount_amount != null
+      ? 'fixed'
+      : tx.discount_percentage != null
+        ? 'percentage'
+        : 'none';
+  const discount_value =
+    discount_kind === 'fixed'
+      ? String(fromCents(tx.discount_amount) ?? '')
+      : discount_kind === 'percentage'
+        ? String(tx.discount_percentage ?? '')
+        : '';
   return {
     client_type: isRegistered ? 'registered' : 'external',
     user_id: tx.user_id,
@@ -79,7 +101,11 @@ function fromTransaction(tx: TransactionRead): FormState {
     external_name: tx.external_name ?? '',
     category: tx.category,
     description: tx.description,
-    amount: tx.amount !== null ? String(fromCents(tx.amount) ?? '') : '',
+    gross_amount:
+      tx.gross_amount !== null ? String(fromCents(tx.gross_amount) ?? '') : '',
+    discount_kind,
+    discount_value,
+    discount_description: tx.discount_description ?? '',
     transaction_date: tx.transaction_date,
     status: tx.status,
     paid_date: tx.paid_date ?? '',
@@ -87,6 +113,23 @@ function fromTransaction(tx: TransactionRead): FormState {
     payment_reference: tx.payment_reference ?? '',
     payment_notes: tx.payment_notes ?? '',
   };
+}
+
+// Neto previsualizado en vivo (cents) a partir del bruto y el descuento. El
+// backend recalcula este valor; aquí solo se muestra como referencia.
+function previewNet(state: FormState): number | null {
+  const gross = toCents(state.gross_amount);
+  if (gross === null) return null;
+  if (state.discount_kind === 'fixed') {
+    const disc = toCents(state.discount_value) ?? 0;
+    return gross - disc;
+  }
+  if (state.discount_kind === 'percentage') {
+    const pct = parseFloat(state.discount_value);
+    if (Number.isNaN(pct)) return gross;
+    return Math.round(gross * (1 - pct / 100));
+  }
+  return gross;
 }
 
 interface BaseProps {
@@ -114,6 +157,8 @@ export default function TransactionForm(props: TransactionFormProps) {
   const { mode, onCancel, submitting, serverError, apiError } = props;
   const kind = props.kind ?? 'sale';
   const isExpense = kind === 'expense';
+  const { me } = useAuth();
+  const currency = me?.academy.currency ?? null;
 
   const [state, setState] = useState<FormState>(() =>
     mode === 'edit' ? fromTransaction(props.transaction) : EMPTY(),
@@ -131,6 +176,10 @@ export default function TransactionForm(props: TransactionFormProps) {
   }, [apiError]);
 
   const readonly = mode === 'edit' && props.transaction.status === 'paid';
+  // Solo el backend setea discount_id (transacción generada desde un descuento
+  // recurrente del estudiante). Si viene poblado lo mostramos para trazabilidad.
+  const inheritedDiscountId =
+    mode === 'edit' ? props.transaction.discount_id : null;
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setState((s) => ({ ...s, [k]: v }));
@@ -155,9 +204,27 @@ export default function TransactionForm(props: TransactionFormProps) {
     }
     if (!state.category) next.category = 'Requerido';
     if (!state.description.trim()) next.description = 'Requerido';
-    const amt = parseFloat(state.amount);
-    if (!state.amount || Number.isNaN(amt) || amt <= 0) {
-      next.amount = 'Monto mayor a cero';
+    const gross = parseFloat(state.gross_amount);
+    if (!state.gross_amount || Number.isNaN(gross) || gross <= 0) {
+      next.gross_amount = 'Monto mayor a cero';
+    }
+    if (state.discount_kind === 'fixed') {
+      const disc = parseFloat(state.discount_value);
+      if (!state.discount_value || Number.isNaN(disc) || disc < 0) {
+        next.discount_value = 'Descuento inválido';
+      } else if (!Number.isNaN(gross) && disc > gross) {
+        next.discount_value = 'El descuento no puede superar el bruto';
+      }
+    } else if (state.discount_kind === 'percentage') {
+      const pct = parseFloat(state.discount_value);
+      if (
+        state.discount_value === '' ||
+        Number.isNaN(pct) ||
+        pct < 0 ||
+        pct > 100
+      ) {
+        next.discount_value = 'Entre 0 y 100';
+      }
     }
     if (!state.transaction_date) next.transaction_date = 'Requerido';
     if (state.status === 'paid') {
@@ -172,8 +239,19 @@ export default function TransactionForm(props: TransactionFormProps) {
     e.preventDefault();
     if (!validate()) return;
 
-    const amountCents = toCents(state.amount);
-    if (amountCents === null) return;
+    const grossCents = toCents(state.gross_amount);
+    if (grossCents === null) return;
+
+    const discount_amount =
+      state.discount_kind === 'fixed' ? toCents(state.discount_value) : null;
+    const discount_percentage =
+      state.discount_kind === 'percentage'
+        ? Math.round(parseFloat(state.discount_value))
+        : null;
+    const discount_description =
+      state.discount_kind !== 'none' && state.discount_description.trim()
+        ? state.discount_description.trim()
+        : null;
 
     const payload: TransactionCreate = {
       kind,
@@ -181,7 +259,7 @@ export default function TransactionForm(props: TransactionFormProps) {
       status: state.status,
       description: state.description.trim(),
       transaction_date: state.transaction_date,
-      amount: amountCents,
+      gross_amount: grossCents,
       user_id: state.client_type === 'registered' ? state.user_id : null,
       external_name:
         state.client_type === 'external' ? state.external_name.trim() : null,
@@ -198,16 +276,18 @@ export default function TransactionForm(props: TransactionFormProps) {
       recurring_id: mode === 'edit' ? props.transaction.recurring_id : null,
       payment_reference: state.payment_reference.trim() || null,
       payment_notes: state.payment_notes.trim() || null,
+      discount_amount,
+      discount_percentage,
+      discount_description,
+      // Conserva el discount_id heredado en edición; null en alta manual.
+      discount_id: inheritedDiscountId,
     };
 
-    if (mode === 'create') {
-      await props.onSubmit(payload);
-    } else {
-      await props.onSubmit(payload);
-    }
+    await props.onSubmit(payload);
   };
 
   const categories = categoriesForKind(kind);
+  const netCents = previewNet(state);
 
   return (
     <form id="transaction-form" onSubmit={handleSubmit} noValidate>
@@ -365,7 +445,7 @@ export default function TransactionForm(props: TransactionFormProps) {
       <div className="field--row">
         <div className="field">
           <label className="field__label" htmlFor="tx-amount">
-            Monto <span style={{ color: 'var(--color-danger)' }}>*</span>
+            Monto bruto <span style={{ color: 'var(--color-danger)' }}>*</span>
           </label>
           <input
             id="tx-amount"
@@ -373,13 +453,13 @@ export default function TransactionForm(props: TransactionFormProps) {
             type="number"
             step="0.01"
             min="0"
-            value={state.amount}
-            onChange={(e) => set('amount', e.target.value)}
-            aria-invalid={!!errors.amount}
+            value={state.gross_amount}
+            onChange={(e) => set('gross_amount', e.target.value)}
+            aria-invalid={!!errors.gross_amount}
             placeholder="0.00"
             disabled={readonly}
           />
-          <span className="field__error">{errors.amount ?? ''}</span>
+          <span className="field__error">{errors.gross_amount ?? ''}</span>
         </div>
 
         <div className="field">
@@ -402,6 +482,85 @@ export default function TransactionForm(props: TransactionFormProps) {
           </select>
           <span className="field__error">{errors.status ?? ''}</span>
         </div>
+      </div>
+
+      {inheritedDiscountId !== null && (
+        <p className="field__hint" style={{ color: 'var(--color-text-muted)' }}>
+          Descuento aplicado desde configuración del estudiante. Editar el
+          descuento puntual lo sobreescribe.
+        </p>
+      )}
+
+      <div className="field--row">
+        <div className="field">
+          <label className="field__label" htmlFor="tx-discount-kind">
+            Descuento
+          </label>
+          <select
+            id="tx-discount-kind"
+            className="select"
+            value={state.discount_kind}
+            onChange={(e) => {
+              set('discount_kind', e.target.value as DiscountKind);
+              set('discount_value', '');
+            }}
+            disabled={readonly}
+          >
+            <option value="none">Sin descuento</option>
+            <option value="fixed">Fijo</option>
+            <option value="percentage">Porcentual</option>
+          </select>
+          <span className="field__error" />
+        </div>
+
+        {state.discount_kind !== 'none' && (
+          <div className="field">
+            <label className="field__label" htmlFor="tx-discount-value">
+              {state.discount_kind === 'fixed'
+                ? 'Monto del descuento'
+                : 'Porcentaje (%)'}{' '}
+              <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </label>
+            <input
+              id="tx-discount-value"
+              className="input"
+              type="number"
+              step={state.discount_kind === 'fixed' ? '0.01' : '1'}
+              min="0"
+              max={state.discount_kind === 'percentage' ? '100' : undefined}
+              value={state.discount_value}
+              onChange={(e) => set('discount_value', e.target.value)}
+              aria-invalid={!!errors.discount_value}
+              placeholder={state.discount_kind === 'fixed' ? '0.00' : '0'}
+              disabled={readonly}
+            />
+            <span className="field__error">{errors.discount_value ?? ''}</span>
+          </div>
+        )}
+      </div>
+
+      {state.discount_kind !== 'none' && (
+        <div className="field">
+          <label className="field__label" htmlFor="tx-discount-desc">
+            Motivo del descuento
+          </label>
+          <input
+            id="tx-discount-desc"
+            className="input"
+            value={state.discount_description}
+            onChange={(e) => set('discount_description', e.target.value)}
+            placeholder="opcional"
+            disabled={readonly}
+          />
+          <span className="field__error" />
+        </div>
+      )}
+
+      <div className="amount-summary">
+        <span className="amount-summary__label">Monto neto</span>
+        <span className="amount-summary__value">
+          {formatMoney(netCents, currency)}
+        </span>
       </div>
 
       {state.status === 'paid' && (

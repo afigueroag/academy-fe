@@ -10,10 +10,14 @@ import type {
   CourseRead,
   CourseStudentRead,
   CourseUpdate,
+  DiscountCreate,
+  DiscountRead,
+  DiscountUpdate,
   DocumentCategory,
   DocumentDownload,
   DocumentRead,
   DocumentVisibilityUpdate,
+  ListDiscountsParams,
   EnrollmentCreate,
   EnrollmentRead,
   EnrollmentUpdate,
@@ -632,6 +636,57 @@ export async function deleteRecurringTransaction(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as RecurringTransactionRead;
+}
+
+// ---------- Descuentos ----------
+
+export async function listDiscounts(
+  params: ListDiscountsParams = {},
+): Promise<DiscountRead[]> {
+  const q = new URLSearchParams();
+  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
+  if (params.type) q.set('type', params.type);
+  if (params.applies_to) q.set('applies_to', params.applies_to);
+  if (params.active !== undefined) q.set('active', String(params.active));
+  if (params.search) q.set('search', params.search);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(`/discounts${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DiscountRead[];
+}
+
+export async function getDiscount(id: number): Promise<DiscountRead> {
+  const res = await authFetch(`/discounts/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DiscountRead;
+}
+
+export async function createDiscount(
+  payload: DiscountCreate,
+): Promise<DiscountRead> {
+  const res = await authFetch('/discounts', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DiscountRead;
+}
+
+export async function updateDiscount(
+  id: number,
+  payload: DiscountUpdate,
+): Promise<DiscountRead> {
+  const res = await authFetch(`/discounts/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DiscountRead;
+}
+
+export async function deleteDiscount(id: number): Promise<DiscountRead> {
+  const res = await authFetch(`/discounts/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as DiscountRead;
 }
 
 export async function listAttendance(

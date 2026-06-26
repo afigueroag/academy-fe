@@ -156,6 +156,9 @@ function pendingToTransactionRead(
     status: t.status,
     description: t.description,
     transaction_date: t.transaction_date,
+    // TransactionUserRead solo expone el neto. Para registrar el pago se usa
+    // como bruto sin descuento adicional: el neto cargado no cambia.
+    gross_amount: t.amount,
     amount: t.amount,
     user_id: user.id,
     external_name: null,
@@ -167,6 +170,10 @@ function pendingToTransactionRead(
     recurring_id: t.recurring_id,
     payment_reference: null,
     payment_notes: null,
+    discount_amount: null,
+    discount_percentage: null,
+    discount_description: null,
+    discount_id: null,
     user: { id: user.id, first_name: user.first_name, last_name: user.last_name },
   };
 }
@@ -423,7 +430,7 @@ export default function UsersModule(props: UsersModuleProps) {
             category: 'enrollment_fee',
             status: 'pending',
             user_id: userId,
-            amount: academy.enrollment_fee_amount,
+            gross_amount: academy.enrollment_fee_amount,
             transaction_date: today,
             description: 'Matrícula anual',
             external_name: null,
@@ -435,6 +442,10 @@ export default function UsersModule(props: UsersModuleProps) {
             recurring_id: null,
             payment_reference: null,
             payment_notes: null,
+            discount_amount: null,
+            discount_percentage: null,
+            discount_description: null,
+            discount_id: null,
           });
         }
       }

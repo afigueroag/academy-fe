@@ -78,7 +78,8 @@ export default function RegisterPaymentForm({
       status: 'paid',
       description: transaction.description,
       transaction_date: transaction.transaction_date,
-      amount: transaction.amount,
+      // Registrar el pago no cambia los montos: se conservan bruto y descuento.
+      gross_amount: transaction.gross_amount,
       user_id: transaction.user_id,
       external_name: transaction.external_name,
       course_id: transaction.course_id,
@@ -89,6 +90,10 @@ export default function RegisterPaymentForm({
       payment_method: method as PaymentMethod,
       payment_reference: reference.trim() || null,
       payment_notes: notes.trim() || null,
+      discount_amount: transaction.discount_amount,
+      discount_percentage: transaction.discount_percentage,
+      discount_description: transaction.discount_description,
+      discount_id: transaction.discount_id,
     };
     await onSubmit(payload);
   };

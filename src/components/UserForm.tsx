@@ -15,6 +15,7 @@ import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
 import UserDocumentsSection from './UserDocumentsSection';
+import StudentDiscountsSection from './StudentDiscountsSection';
 import StudentExtraFields, {
   EMPTY_STUDENT_EXTRA,
   studentExtraFromUser,
@@ -604,6 +605,10 @@ export default function UserForm(props: UserFormProps) {
             )}
           </div>
         </div>
+      )}
+
+      {mode === 'edit' && isStudent && (
+        <StudentDiscountsSection userId={props.user.id} />
       )}
 
       {mode === 'edit' && (

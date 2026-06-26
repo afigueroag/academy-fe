@@ -1408,6 +1408,40 @@ button {
   letter-spacing: -0.01em;
 }
 
+/* Fila de resumen "Monto neto" (preview en vivo del descuento). */
+.amount-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+}
+
+.amount-summary__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.amount-summary__value {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Editor inline de descuentos del estudiante. */
+.discount-editor {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
 /* ---------- Input affixes (prefix / suffix) ---------- */
 
 .input-affix {

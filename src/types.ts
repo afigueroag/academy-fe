@@ -423,7 +423,8 @@ export interface TransactionCreate {
   status: TransactionStatus;
   description: string;
   transaction_date: string;
-  amount: number;
+  // Monto bruto en cents (antes de descuento). El backend calcula el neto.
+  gross_amount: number;
   user_id: number | null;
   external_name: string | null;
   course_id: number | null;
@@ -434,11 +435,22 @@ export interface TransactionCreate {
   recurring_id: number | null;
   payment_reference: string | null;
   payment_notes: string | null;
+  // Descuento puntual de la transacción. Es fijo (discount_amount, cents) O
+  // porcentual (discount_percentage, 0–100), nunca ambos a la vez.
+  discount_amount: number | null;
+  discount_percentage: number | null;
+  discount_description: string | null;
+  // Lo setea el backend para transacciones generadas desde un descuento
+  // recurrente del estudiante. En alta/edición manual va null.
+  discount_id: number | null;
 }
 
 export type TransactionUpdate = TransactionCreate;
 
 export interface TransactionRead extends TransactionCreate {
+  // Monto neto (cents) calculado por el backend a partir de gross_amount y el
+  // descuento. Read-only: no se envía en create/update.
+  amount: number;
   id: number;
   user: UserPublic | null;
 }
@@ -506,6 +518,47 @@ export interface TransactionSummaryParams {
   user_id?: number;
   from_date?: string;
   to_date?: string;
+}
+
+// ---------- Descuentos ----------
+// Descuento persistente por estudiante (tabla `discount`). El backend lo aplica
+// al generar las recurring transactions; el front solo administra el CRUD.
+
+export type DiscountType = 'family_discount' | 'scholarship' | 'other';
+
+export type DiscountValueType = 'percentage' | 'fixed';
+
+export type DiscountAppliesTo = 'tuition' | 'enrollment_fee' | 'both';
+
+export interface DiscountCreate {
+  user_id: number;
+  type: DiscountType;
+  value_type: DiscountValueType;
+  // Según value_type: 'percentage' usa percentage (0–100) y amount null;
+  // 'fixed' usa amount (cents) y percentage null. Exactamente uno.
+  percentage: number | null;
+  amount: number | null;
+  applies_to: DiscountAppliesTo;
+  description: string | null;
+}
+
+export interface DiscountUpdate extends DiscountCreate {
+  is_active: boolean;
+}
+
+export interface DiscountRead extends DiscountCreate {
+  is_active: boolean;
+  id: number;
+}
+
+export interface ListDiscountsParams {
+  user_id?: number;
+  type?: DiscountType;
+  applies_to?: DiscountAppliesTo;
+  active?: boolean;
+  search?: string;
+  skip?: number;
+  limit?: number;
 }
 
 export interface CoursePublic {

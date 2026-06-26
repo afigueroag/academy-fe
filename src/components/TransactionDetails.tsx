@@ -52,6 +52,15 @@ export default function TransactionDetails({
   kind = 'sale',
 }: Props) {
   const isExpense = kind === 'expense';
+  const hasDiscount =
+    transaction.discount_amount != null ||
+    transaction.discount_percentage != null;
+  const discountValue =
+    transaction.discount_amount != null
+      ? formatMoney(transaction.discount_amount, currency)
+      : transaction.discount_percentage != null
+        ? `${transaction.discount_percentage}%`
+        : null;
   const client = transaction.user
     ? `${transaction.user.first_name} ${transaction.user.last_name}`
     : transaction.external_name
@@ -67,7 +76,20 @@ export default function TransactionDetails({
       />
       <Item label="Categoría" value={labelTransactionCategory(transaction.category)} />
       <Item label="Descripción" value={transaction.description} />
-      <Item label="Monto" value={formatMoney(transaction.amount, currency)} />
+      <Item label="Monto bruto" value={formatMoney(transaction.gross_amount, currency)} />
+      {hasDiscount && (
+        <Item label="Descuento" value={discountValue} />
+      )}
+      {hasDiscount && transaction.discount_description && (
+        <Item label="Motivo del descuento" value={transaction.discount_description} />
+      )}
+      {transaction.discount_id !== null && (
+        <Item
+          label="Origen del descuento"
+          value="Configuración del estudiante"
+        />
+      )}
+      <Item label="Monto neto" value={formatMoney(transaction.amount, currency)} />
       <Item label="Fecha" value={formatDate(transaction.transaction_date)} />
       <Item label="Fecha de pago" value={formatDate(transaction.paid_date)} />
       <Item

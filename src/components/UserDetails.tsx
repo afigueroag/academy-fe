@@ -14,6 +14,7 @@ import ConfirmModal from './ConfirmModal';
 import InstructorPaySection from './InstructorPaySection';
 import StudentAttendanceSection from './StudentAttendanceSection';
 import UserDocumentsSection from './UserDocumentsSection';
+import StudentDiscountsSection from './StudentDiscountsSection';
 import {
   ApiError,
   deleteRecurringTransaction,
@@ -430,6 +431,8 @@ export default function UserDetails({
               </div>
             )}
           </section>
+
+          <StudentDiscountsSection userId={user.id} editable={false} />
 
           <StudentAttendanceSection studentId={user.id} />
         </>
