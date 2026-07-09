@@ -24,6 +24,8 @@ import type {
   FinanceExpensesRead,
   FinanceIncomeRead,
   FinanceOverviewRead,
+  FinancePayrollRead,
+  FinancePnlRead,
   GroupCategoryCreate,
   GroupCategoryRead,
   GroupCategoryUpdate,
@@ -79,6 +81,18 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+// Handler global de sesión expirada. Lo registra AuthProvider para limpiar el
+// estado de React y navegar a /login sin recargar la página. Se dispara cuando
+// cualquier llamada autenticada recibe 401 (token expirado o inválido).
+type SessionExpiredHandler = () => void;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+
+export function setSessionExpiredHandler(
+  fn: SessionExpiredHandler | null,
+): void {
+  sessionExpiredHandler = fn;
 }
 
 export class ApiError extends Error {
@@ -162,6 +176,12 @@ async function authFetch(path: string, opts: AuthFetchOptions = {}): Promise<Res
     headers,
     body,
   });
+  if (res.status === 401) {
+    // Token expirado o inválido a mitad de sesión: cerrar sesión globalmente
+    // para que las guardas de ruta redirijan a /login sin necesidad de refresh.
+    clearToken();
+    sessionExpiredHandler?.();
+  }
   return res;
 }
 
@@ -865,6 +885,24 @@ export async function getFinanceExpenses(
   const res = await authFetch(`/dashboards/expenses?${dashboardQuery(month, year)}`);
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as FinanceExpensesRead;
+}
+
+export async function getFinancePnl(
+  month: number,
+  year: number,
+): Promise<FinancePnlRead> {
+  const res = await authFetch(`/dashboards/pnl?${dashboardQuery(month, year)}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as FinancePnlRead;
+}
+
+export async function getFinancePayroll(
+  month: number,
+  year: number,
+): Promise<FinancePayrollRead> {
+  const res = await authFetch(`/dashboards/payroll?${dashboardQuery(month, year)}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as FinancePayrollRead;
 }
 
 export async function getInstructorPmt(

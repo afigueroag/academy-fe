@@ -7,9 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { UserMe } from './types';
 import { applyTheme, resetTheme } from './theme';
-import { clearToken, getMe, getToken } from './api';
+import { clearToken, getMe, getToken, setSessionExpiredHandler } from './api';
 
 interface AuthContextValue {
   me: UserMe | null;
@@ -21,6 +22,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [me, setMeState] = useState<UserMe | null>(null);
   const [loading, setLoading] = useState<boolean>(() => !!getToken());
 
@@ -38,6 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMeState(null);
     resetTheme();
   }, []);
+
+  // Sesión expirada (401 en cualquier llamada autenticada): api.ts ya limpió el
+  // token; aquí limpiamos el estado de React y navegamos a /login. Las guardas
+  // de ruta (RoleRoute/DefaultRedirect) hacen el resto sin recargar la página.
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setMeState(null);
+      resetTheme();
+      navigate('/login', { replace: true });
+    });
+    return () => setSessionExpiredHandler(null);
+  }, [navigate]);
 
   useEffect(() => {
     const token = getToken();

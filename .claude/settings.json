@@ -20,7 +20,11 @@
       "Bash(node -e \"const o = require\\('c:/Users/afigu/repos/academy-fe/openapi.json'\\); const paths = Object.keys\\(o.paths\\); const matches = paths.filter\\(p => p.toLowerCase\\(\\).includes\\('password'\\) || p.toLowerCase\\(\\).includes\\('me'\\) || p.toLowerCase\\(\\).includes\\('reset'\\)\\); console.log\\('Endpoints related to me/password/reset:'\\); matches.forEach\\(p => console.log\\('  ' + p\\)\\); console.log\\(''\\); console.log\\('All Body_ schemas \\(login etc.\\):'\\); const t = o.components.schemas; Object.keys\\(t\\).filter\\(n => n.startsWith\\('Body_'\\)\\).forEach\\(n => console.log\\('  ' + n, '->', JSON.stringify\\(t[n].properties\\)\\)\\);\")",
       "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
       "Bash(python -c ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "PowerShell(npm run lint 2>&1)",
+      "PowerShell(npm run typecheck 2>&1 | Select-String -Pattern \"error|Error\" | Select-Object -First 20; Write-Output \"DONE exit=$LASTEXITCODE\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(grep -rn \"API_BASE\\\\|baseUrl\\\\|BASE_URL\\\\|VITE_API\\\\|fetch\\(\\\\`\\\\|localhost:8000\\\\|authFetch = \\\\|const API\" src/api.ts)"
     ]
   }
 }

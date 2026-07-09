@@ -16,18 +16,28 @@ import StudentConfig from './pages/StudentConfig';
 import InstructorHome from './pages/InstructorHome';
 import InstructorClasses from './pages/InstructorClasses';
 import InstructorConfig from './pages/InstructorConfig';
+import HybridHome from './pages/HybridHome';
+import HybridClasses from './pages/HybridClasses';
 import { useAuth } from './auth';
 import { DefaultRedirect, RoleRoute } from './routing';
 
 const ADMIN_ROLES = ['admin', 'receptionist'] as const;
+// Roles con el shell de autoservicio (Inicio / Clases / Configuración).
+const SELF_SERVICE_ROLES = [
+  'student',
+  'instructor',
+  'instructor_student',
+] as const;
 
 function HomeDispatcher() {
   const { me } = useAuth();
+  if (me?.role === 'instructor_student') return <HybridHome />;
   return me?.role === 'instructor' ? <InstructorHome /> : <StudentHome />;
 }
 
 function ClassesDispatcher() {
   const { me } = useAuth();
+  if (me?.role === 'instructor_student') return <HybridClasses />;
   return me?.role === 'instructor' ? <InstructorClasses /> : <StudentClasses />;
 }
 
@@ -112,7 +122,7 @@ export default function App() {
       <Route
         path="/inicio"
         element={
-          <RoleRoute allow={['student', 'instructor']}>
+          <RoleRoute allow={[...SELF_SERVICE_ROLES]}>
             <HomeDispatcher />
           </RoleRoute>
         }
@@ -120,7 +130,7 @@ export default function App() {
       <Route
         path="/clases"
         element={
-          <RoleRoute allow={['student', 'instructor']}>
+          <RoleRoute allow={[...SELF_SERVICE_ROLES]}>
             <ClassesDispatcher />
           </RoleRoute>
         }
@@ -128,7 +138,7 @@ export default function App() {
       <Route
         path="/configuracion"
         element={
-          <RoleRoute allow={['student', 'instructor']}>
+          <RoleRoute allow={[...SELF_SERVICE_ROLES]}>
             <ConfigDispatcher />
           </RoleRoute>
         }

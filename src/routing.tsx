@@ -2,9 +2,10 @@ import { Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from './auth';
 import type { UserRole } from './types';
+import { isSelfServiceRole } from './utils/roles';
 
 export function homePathForRole(role: UserRole | undefined | null): string {
-  if (role === 'student' || role === 'instructor') return '/inicio';
+  if (isSelfServiceRole(role)) return '/inicio';
   return '/students';
 }
 

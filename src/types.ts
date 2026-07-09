@@ -12,7 +12,12 @@ export type AcademyPlan = 'starter' | 'professional';
 
 export type UserStatus = 'pending' | 'active' | 'inactive';
 
-export type UserRole = 'admin' | 'receptionist' | 'instructor' | 'student';
+export type UserRole =
+  | 'admin'
+  | 'receptionist'
+  | 'instructor'
+  | 'instructor_student' // híbrido: imparte clases y a la vez es alumno
+  | 'student';
 
 export type UserGender = 'masculine' | 'feminine';
 
@@ -48,6 +53,7 @@ export type TransactionStatus = 'scheduled' | 'pending' | 'paid' | 'cancelled';
 export type TransactionCategory =
   | 'tuition'
   | 'enrollment_fee'
+  | 'class_fee'
   | 'material_sale'
   | 'exam_fee'
   | 'private_class'
@@ -183,6 +189,10 @@ export interface UserMe {
 
 export interface UserRead {
   id: number;
+  // Rol real del usuario. Pendiente en OpenAPI: el backend debe exponer `role`
+  // en UserRead para poder mostrar/predefinir el rol al editar (ver punto 1 del
+  // rol instructor_student). Nullable hasta que el backend lo agregue.
+  role?: UserRole | null;
   first_name: string;
   last_name: string;
   email: string | null;
@@ -341,6 +351,11 @@ export interface UserInvite {
 export interface UserUpdate {
   first_name: string;
   last_name: string;
+  // Cambiar el rol al editar (student/instructor ↔ instructor_student).
+  // Pendiente en OpenAPI: el backend debe aceptar `role` en UserUpdate y manejar
+  // los efectos (links de instructor, cobros de estudiante). Opcional: si no se
+  // envía, el rol no cambia.
+  role?: UserRole;
   phone: string | null;
   address: string | null;
   date_of_birth: string | null;
@@ -1019,4 +1034,86 @@ export interface FinanceExpensesRead {
   by_category: CategoryBreakdown[];
   by_payment_method: MethodBreakdown[];
   recent: TransactionRead[];
+}
+
+// ---------- Finanzas: P&L y Nómina (Parte 2) ----------
+// Punto mensual para series (línea/barras). month: "YYYY-MM", amount en cents.
+export interface MonthPoint {
+  month: string;
+  amount: number;
+}
+
+// ---- P&L ----
+export interface FinancePnlKpis {
+  income: KpiValue;
+  expense: KpiValue;
+  payroll: KpiValue;
+  net_profit: KpiValue;
+}
+
+export interface FinancePnlRead {
+  kpis: FinancePnlKpis;
+  income_by_category: CategoryBreakdown[];
+  expense_by_category: CategoryBreakdown[];
+  pnl: PnL;
+  // 12 meses hasta el mes seleccionado.
+  net_profit_trend: MonthPoint[];
+}
+
+// ---- Nómina ----
+export type PayrollRole = 'instructor' | 'other';
+
+export interface NextScheduledPayment {
+  date: string;
+  days_until: number;
+  amount: number;
+}
+
+export interface PayrollComputedRow {
+  user: UserPublic;
+  role: PayrollRole;
+  period_start: string;
+  period_end: string;
+  hours: number;
+  computed_amount: number;
+  already_created: boolean;
+}
+
+export interface PayrollTransactionRow {
+  id: number;
+  user: UserPublic;
+  role: PayrollRole;
+  period_start: string | null;
+  period_end: string | null;
+  amount: number;
+  status: TransactionStatus;
+  paid_date: string | null;
+}
+
+export interface PayrollDistribution {
+  instructor: number;
+  other: number;
+}
+
+export interface UpcomingPayrollRow {
+  user: UserPublic;
+  role: PayrollRole;
+  date: string;
+  amount: number;
+}
+
+export interface FinancePayrollKpis {
+  total_payroll: KpiValue;
+  employees_paid: KpiValue;
+  avg_per_employee: KpiValue;
+  next_scheduled: NextScheduledPayment | null;
+}
+
+export interface FinancePayrollRead {
+  kpis: FinancePayrollKpis;
+  computed: PayrollComputedRow[];
+  transactions: PayrollTransactionRow[];
+  distribution: PayrollDistribution;
+  by_month: MonthPoint[];
+  upcoming: UpcomingPayrollRow[];
 }

@@ -1,6 +1,7 @@
 import type {
   EnrollmentFeeMode,
   PaymentMethod,
+  PayrollRole,
   TransactionCategory,
   TransactionFrequency,
   TransactionKind,
@@ -22,6 +23,7 @@ const STATUS: Record<TransactionStatus, string> = {
 const CATEGORY: Record<TransactionCategory, string> = {
   tuition: 'Mensualidad',
   enrollment_fee: 'Matrícula anual',
+  class_fee: 'Cuota de clase',
   material_sale: 'Venta de material',
   exam_fee: 'Examen',
   private_class: 'Clase privada',
@@ -58,6 +60,15 @@ const ENROLLMENT_FEE_MODE: Record<EnrollmentFeeMode, string> = {
   none: 'Sin matrícula anual',
 };
 
+const PAYROLL_ROLE: Record<PayrollRole, string> = {
+  instructor: 'Instructor',
+  other: 'Otros',
+};
+
+export function payrollRoleLabels(v: PayrollRole): string {
+  return PAYROLL_ROLE[v];
+}
+
 export function labelTransactionKind(v: TransactionKind): string {
   return KIND[v];
 }
@@ -85,6 +96,7 @@ export function labelEnrollmentFeeMode(v: EnrollmentFeeMode): string {
 const SALE_CATEGORIES: TransactionCategory[] = [
   'tuition',
   'enrollment_fee',
+  'class_fee',
   'material_sale',
   'exam_fee',
   'private_class',

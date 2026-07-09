@@ -17,7 +17,9 @@ import {
   createTransaction,
   createUser,
   deleteUser,
+  getFinancePayroll,
   getToken,
+  getTransactionsSummary,
   inviteUser,
   listUsers,
   updateRecurringTransaction,
@@ -26,6 +28,7 @@ import {
 } from '../api';
 import type {
   Debt,
+  FinancePayrollKpis,
   RecurringTransactionCreate,
   RecurringTransactionRead,
   RecurringTransactionUpdate,
@@ -51,6 +54,7 @@ import {
   TrashIcon,
 } from '../brand';
 import { formatMoney } from '../utils/money';
+import KpiCard from '../components/charts/KpiCard';
 
 interface UsersModuleProps {
   role: UserRole;
@@ -209,6 +213,20 @@ export default function UsersModule(props: UsersModuleProps) {
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // KPIs adicionales de la cabecera. Independientes de los filtros de la lista:
+  // se piden con fetch dedicado (la lista está paginada). Ver punto 2 del brief.
+  // Estudiantes → cuentas por cobrar (/transactions/summary) y pendientes de
+  // activación (listUsers status=pending). Instructores → nómina del mes
+  // (/dashboards/payroll, ya agregado por el backend con delta_pct).
+  const [receivable, setReceivable] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [pendingActivation, setPendingActivation] = useState<number | null>(
+    null,
+  );
+  const [payrollKpis, setPayrollKpis] = useState<FinancePayrollKpis | null>(
+    null,
+  );
+
   const [panel, setPanel] = useState<PanelState>(null);
   const [submitting, setSubmitting] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
@@ -270,6 +288,35 @@ export default function UsersModule(props: UsersModuleProps) {
     }
   }, [role]);
 
+  const fetchKpis = useCallback(async () => {
+    if (role === 'student') {
+      try {
+        const [summary, pending] = await Promise.all([
+          getTransactionsSummary({ kind: 'sale' }),
+          listUsers({ role, status: 'pending' }),
+        ]);
+        setReceivable(summary.pending);
+        setPendingCount(summary.pending_count);
+        setPendingActivation(pending.length);
+      } catch {
+        setReceivable(null);
+        setPendingCount(null);
+        setPendingActivation(null);
+      }
+    } else if (role === 'instructor') {
+      const now = new Date();
+      try {
+        const data = await getFinancePayroll(
+          now.getMonth() + 1,
+          now.getFullYear(),
+        );
+        setPayrollKpis(data.kpis);
+      } catch {
+        setPayrollKpis(null);
+      }
+    }
+  }, [role]);
+
   useEffect(() => {
     fetchList();
   }, [fetchList]);
@@ -277,6 +324,10 @@ export default function UsersModule(props: UsersModuleProps) {
   useEffect(() => {
     fetchActiveCount();
   }, [fetchActiveCount]);
+
+  useEffect(() => {
+    fetchKpis();
+  }, [fetchKpis]);
 
   useEffect(() => {
     return () => {
@@ -621,12 +672,61 @@ export default function UsersModule(props: UsersModuleProps) {
   return (
     <Layout title={pageTitle} actions={headerActions}>
       <section className="summary-grid">
-        <div className="summary-card">
-          <p className="summary-card__label">{summaryLabel}</p>
-          <div className="summary-card__value">
-            {activeCount === null ? '—' : activeCount}
-          </div>
-        </div>
+        <KpiCard
+          label={summaryLabel}
+          value={activeCount === null ? '—' : String(activeCount)}
+        />
+
+        {role === 'student' && (
+          <>
+            <KpiCard
+              label="Cartera vencida"
+              value={
+                receivable === null ? '—' : formatMoney(receivable, currency)
+              }
+            />
+            <KpiCard
+              label="Cobros pendientes"
+              value={pendingCount === null ? '—' : String(pendingCount)}
+            />
+            <KpiCard
+              label="Pendientes de activación"
+              value={
+                pendingActivation === null ? '—' : String(pendingActivation)
+              }
+            />
+          </>
+        )}
+
+        {role === 'instructor' && (
+          <>
+            <KpiCard
+              label="Nómina del mes"
+              value={
+                payrollKpis
+                  ? formatMoney(payrollKpis.total_payroll.value, currency)
+                  : '—'
+              }
+              delta={payrollKpis?.total_payroll.delta_pct}
+            />
+            <KpiCard
+              label="Pago promedio"
+              value={
+                payrollKpis
+                  ? formatMoney(payrollKpis.avg_per_employee.value, currency)
+                  : '—'
+              }
+              delta={payrollKpis?.avg_per_employee.delta_pct}
+            />
+            <KpiCard
+              label="Empleados pagados"
+              value={
+                payrollKpis ? String(payrollKpis.employees_paid.value) : '—'
+              }
+              delta={payrollKpis?.employees_paid.delta_pct}
+            />
+          </>
+        )}
       </section>
 
       <section className="filter-bar">

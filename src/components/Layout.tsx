@@ -72,7 +72,7 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 <span>Configuración</span>
               </NavLink>
             </>
-          ) : me?.role === 'instructor' ? (
+          ) : me?.role === 'instructor' || me?.role === 'instructor_student' ? (
             <>
               <NavLink
                 to="/inicio"

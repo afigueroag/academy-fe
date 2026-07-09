@@ -14,6 +14,7 @@ import { SpinnerIcon } from '../brand';
 import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
+import { hasStudentView, labelUserRole } from '../utils/roles';
 import UserDocumentsSection from './UserDocumentsSection';
 import StudentDiscountsSection from './StudentDiscountsSection';
 import StudentExtraFields, {
@@ -135,8 +136,25 @@ type UserFormProps = CreateProps | EditProps;
 export default function UserForm(props: UserFormProps) {
   const { mode, onCancel, submitting, serverError, apiError } = props;
 
+  // Rol seleccionado. En alta lo fija el módulo; en edición se puede cambiar
+  // entre el rol base y el híbrido instructor_student (punto 1). El rol real del
+  // usuario viene en `user.role` (pendiente en OpenAPI); si falta, cae al módulo.
+  const [selectedRole, setSelectedRole] = useState<UserRole>(() =>
+    mode === 'edit' ? props.user.role ?? props.role : props.role,
+  );
+  const effectiveRole: UserRole = mode === 'edit' ? selectedRole : props.role;
+
+  // Opciones del selector: el rol base del módulo + el híbrido.
+  const roleOptions: UserRole[] =
+    props.role === 'instructor'
+      ? ['instructor', 'instructor_student']
+      : ['student', 'instructor_student'];
+
   const isStudent = props.role === 'student';
   const isStudentCreate = mode === 'create' && isStudent;
+  // ¿Mostrar campos de estudiante (grupos, datos extra, descuentos)? El híbrido
+  // también los tiene.
+  const showsStudentFields = hasStudentView(effectiveRole);
   const academy: AcademyMe | undefined =
     mode === 'create' ? props.academy : undefined;
   const currency = academy?.currency ?? null;
@@ -180,6 +198,7 @@ export default function UserForm(props: UserFormProps) {
       setState(fromUser(props.user));
       setExtra(studentExtraFromUser(props.user));
       setGroups(props.user.groups ?? []);
+      setSelectedRole(props.user.role ?? props.role);
     }
   }, [mode, mode === 'edit' ? props.user : null]);
 
@@ -238,8 +257,8 @@ export default function UserForm(props: UserFormProps) {
         start_date: nullable(state.start_date),
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
-        ...(isStudent ? studentExtraToPayload(extra) : {}),
-        ...(isStudent ? { groups } : {}),
+        ...(showsStudentFields ? studentExtraToPayload(extra) : {}),
+        ...(showsStudentFields ? { groups } : {}),
       };
       const billing: StudentBillingSetup | undefined = isStudentCreate
         ? {
@@ -257,6 +276,11 @@ export default function UserForm(props: UserFormProps) {
       const payload: UserUpdate = {
         first_name: state.first_name.trim(),
         last_name: state.last_name.trim(),
+        // Solo enviamos role si cambió respecto al rol original del usuario.
+        // Requiere que el backend acepte `role` en UserUpdate (ver types.ts).
+        ...(selectedRole !== (props.user.role ?? props.role)
+          ? { role: selectedRole }
+          : {}),
         phone: nullable(state.phone),
         address: nullable(state.address),
         date_of_birth: nullable(state.date_of_birth),
@@ -264,8 +288,8 @@ export default function UserForm(props: UserFormProps) {
         payment_method: state.payment_method === '' ? null : state.payment_method,
         special_conditions: nullable(state.special_conditions),
         status: state.status as UserStatus,
-        ...(isStudent ? studentExtraToPayload(extra) : {}),
-        ...(isStudent ? { groups } : {}),
+        ...(showsStudentFields ? studentExtraToPayload(extra) : {}),
+        ...(showsStudentFields ? { groups } : {}),
       };
       await props.onSubmit(payload);
     }
@@ -422,11 +446,34 @@ export default function UserForm(props: UserFormProps) {
         <span className="field__error">{errors.special_conditions ?? ''}</span>
       </div>
 
-      {isStudent && (
+      {mode === 'edit' && (
+        <div className="field">
+          <label className="field__label" htmlFor="uf-role">
+            Rol
+          </label>
+          <select
+            id="uf-role"
+            className="select"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {labelUserRole(r)}
+              </option>
+            ))}
+          </select>
+          <span className="field__hint" style={{ color: 'var(--color-text-muted)' }}>
+            El híbrido imparte clases y a la vez es alumno.
+          </span>
+        </div>
+      )}
+
+      {showsStudentFields && (
         <StudentExtraFields value={extra} onChange={setExtra} idPrefix="uf" />
       )}
 
-      {isStudent && (
+      {showsStudentFields && (
         <div className="field">
           <span className="field__label">Grupos</span>
           <GroupPicker value={groups} onChange={setGroups} />
@@ -607,7 +654,7 @@ export default function UserForm(props: UserFormProps) {
         </div>
       )}
 
-      {mode === 'edit' && isStudent && (
+      {mode === 'edit' && showsStudentFields && (
         <StudentDiscountsSection userId={props.user.id} />
       )}
 

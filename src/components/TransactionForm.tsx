@@ -57,6 +57,19 @@ interface FormState {
   payment_notes: string;
 }
 
+// Valores para prellenar el formulario en modo "create" (p. ej. desde la CTA
+// "Generar transacción" de Nómina). Todos opcionales.
+export interface TransactionPrefill {
+  category?: TransactionCategory;
+  user_id?: number;
+  user_label?: string;
+  gross_amount?: string;
+  description?: string;
+  status?: TransactionStatus;
+  period_start?: string | null;
+  period_end?: string | null;
+}
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const EMPTY = (): FormState => ({
@@ -142,6 +155,7 @@ interface BaseProps {
 
 interface CreateProps extends BaseProps {
   mode: 'create';
+  prefill?: TransactionPrefill;
   onSubmit: (payload: TransactionCreate) => Promise<void>;
 }
 
@@ -160,9 +174,24 @@ export default function TransactionForm(props: TransactionFormProps) {
   const { me } = useAuth();
   const currency = me?.academy.currency ?? null;
 
-  const [state, setState] = useState<FormState>(() =>
-    mode === 'edit' ? fromTransaction(props.transaction) : EMPTY(),
-  );
+  const prefill = mode === 'create' ? props.prefill : undefined;
+
+  const [state, setState] = useState<FormState>(() => {
+    if (mode === 'edit') return fromTransaction(props.transaction);
+    const base = EMPTY();
+    if (prefill) {
+      if (prefill.category) base.category = prefill.category;
+      if (prefill.user_id != null) {
+        base.client_type = 'registered';
+        base.user_id = prefill.user_id;
+        base.user_label = prefill.user_label ?? '';
+      }
+      if (prefill.gross_amount != null) base.gross_amount = prefill.gross_amount;
+      if (prefill.description) base.description = prefill.description;
+      if (prefill.status) base.status = prefill.status;
+    }
+    return base;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -264,8 +293,14 @@ export default function TransactionForm(props: TransactionFormProps) {
       external_name:
         state.client_type === 'external' ? state.external_name.trim() : null,
       course_id: mode === 'edit' ? props.transaction.course_id : null,
-      period_start: mode === 'edit' ? props.transaction.period_start : null,
-      period_end: mode === 'edit' ? props.transaction.period_end : null,
+      period_start:
+        mode === 'edit'
+          ? props.transaction.period_start
+          : (prefill?.period_start ?? null),
+      period_end:
+        mode === 'edit'
+          ? props.transaction.period_end
+          : (prefill?.period_end ?? null),
       paid_date: state.status === 'paid' ? state.paid_date || null : null,
       payment_method:
         state.status === 'paid'

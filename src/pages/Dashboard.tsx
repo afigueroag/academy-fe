@@ -5,13 +5,17 @@ import NewTransactionPanel from '../components/NewTransactionPanel';
 import Overview from './dashboard/Overview';
 import Income from './dashboard/Income';
 import Expenses from './dashboard/Expenses';
+import Pnl from './dashboard/Pnl';
+import Payroll from './dashboard/Payroll';
+import Reports from './dashboard/Reports';
 import { getToken } from '../api';
 import { useAuth } from '../auth';
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon } from '../brand';
 import type { TransactionKind } from '../types';
+import type { TransactionPrefill } from '../components/TransactionForm';
 import { monthName } from '../utils/finance';
 
-type Tab = 'resumen' | 'ingresos' | 'gastos';
+type Tab = 'resumen' | 'ingresos' | 'gastos' | 'pnl' | 'nomina' | 'reportes';
 
 const MIN_YEAR = 2025;
 
@@ -19,9 +23,10 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'resumen', label: 'Resumen' },
   { value: 'ingresos', label: 'Ingresos' },
   { value: 'gastos', label: 'Gastos' },
+  { value: 'pnl', label: 'P&L' },
+  { value: 'nomina', label: 'Nómina' },
+  { value: 'reportes', label: 'Reportes' },
 ];
-
-const SOON_TABS = ['P&L', 'Nómina', 'Reportes'];
 
 export default function Dashboard() {
   const token = getToken();
@@ -40,6 +45,9 @@ export default function Dashboard() {
   const [panelKind, setPanelKind] = useState<TransactionKind | undefined>(
     undefined,
   );
+  const [panelPrefill, setPanelPrefill] = useState<
+    TransactionPrefill | undefined
+  >(undefined);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -78,13 +86,15 @@ export default function Dashboard() {
     }
   };
 
-  const openPanel = (kind?: TransactionKind) => {
+  const openPanel = (kind?: TransactionKind, prefill?: TransactionPrefill) => {
     setPanelKind(kind);
+    setPanelPrefill(prefill);
     setPanelOpen(true);
   };
 
   const handleCreated = (kind: TransactionKind) => {
     setPanelOpen(false);
+    setPanelPrefill(undefined);
     showToast(kind === 'expense' ? 'Gasto registrado' : 'Ingreso registrado');
     setReloadToken((t) => t + 1);
   };
@@ -151,20 +161,6 @@ export default function Dashboard() {
               {t.label}
             </button>
           ))}
-          {SOON_TABS.map((label) => (
-            <button
-              key={label}
-              type="button"
-              role="tab"
-              aria-selected={false}
-              className="tab-group__item"
-              disabled
-              title="Próximamente"
-            >
-              {label}
-              <span className="pill-soon">Pronto</span>
-            </button>
-          ))}
         </div>
       </div>
 
@@ -203,11 +199,33 @@ export default function Dashboard() {
           reloadToken={reloadToken}
         />
       )}
+      {tab === 'pnl' && (
+        <Pnl
+          month={month}
+          year={year}
+          currency={currency}
+          reloadToken={reloadToken}
+        />
+      )}
+      {tab === 'nomina' && (
+        <Payroll
+          month={month}
+          year={year}
+          currency={currency}
+          reloadToken={reloadToken}
+          onGenerate={(prefill) => openPanel('expense', prefill)}
+        />
+      )}
+      {tab === 'reportes' && <Reports />}
 
       <NewTransactionPanel
         open={panelOpen}
         defaultKind={panelKind}
-        onClose={() => setPanelOpen(false)}
+        prefill={panelPrefill}
+        onClose={() => {
+          setPanelOpen(false);
+          setPanelPrefill(undefined);
+        }}
         onSuccess={handleCreated}
       />
     </Layout>

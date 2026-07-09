@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import SidePanel from './SidePanel';
-import TransactionForm from './TransactionForm';
+import TransactionForm, { type TransactionPrefill } from './TransactionForm';
 import { ApiError, createTransaction } from '../api';
 import type { TransactionCreate, TransactionKind } from '../types';
 import { labelTransactionKind } from '../utils/salesLabels';
@@ -10,6 +10,9 @@ interface NewTransactionPanelProps {
   // Tipo preseleccionado al abrir (p. ej. desde "Nuevo gasto"). El usuario
   // puede cambiarlo con el toggle Venta/Gasto.
   defaultKind?: TransactionKind;
+  // Valores para prellenar el formulario (p. ej. desde Nómina). Solo aplica al
+  // crear; el usuario aún puede editarlos.
+  prefill?: TransactionPrefill;
   onClose: () => void;
   // Se llama tras crear con éxito (el contenedor cierra, hace toast y refresca).
   onSuccess: (kind: TransactionKind) => void;
@@ -20,6 +23,7 @@ const KINDS: TransactionKind[] = ['sale', 'expense'];
 export default function NewTransactionPanel({
   open,
   defaultKind,
+  prefill,
   onClose,
   onSuccess,
 }: NewTransactionPanelProps) {
@@ -93,6 +97,7 @@ export default function NewTransactionPanel({
             key={kind}
             mode="create"
             kind={kind}
+            prefill={kind === (defaultKind ?? 'sale') ? prefill : undefined}
             onSubmit={handleCreate}
             onCancel={handleClose}
             submitting={submitting}
