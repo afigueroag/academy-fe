@@ -1,4 +1,14 @@
-import type { CourseStatus, TransactionStatus, UserStatus } from '../types';
+import type {
+  AnnouncementStatus,
+  CourseStatus,
+  DeliveryStatus,
+  TransactionStatus,
+  UserStatus,
+} from '../types';
+import {
+  labelAnnouncementStatus,
+  labelDeliveryStatus,
+} from '../utils/announcements';
 
 const USER_LABEL: Record<UserStatus, string> = {
   pending: 'Pendiente',
@@ -34,6 +44,26 @@ export function TransactionStatusBadge({ status }: { status: TransactionStatus }
   return (
     <span className={`badge badge--tx-${status}`}>
       {TRANSACTION_LABEL[status]}
+    </span>
+  );
+}
+
+export function AnnouncementStatusBadge({
+  status,
+}: {
+  status: AnnouncementStatus;
+}) {
+  return (
+    <span className={`badge badge--ann-${status}`}>
+      {labelAnnouncementStatus(status)}
+    </span>
+  );
+}
+
+export function DeliveryStatusBadge({ status }: { status: DeliveryStatus }) {
+  return (
+    <span className={`badge badge--delivery-${status}`}>
+      {labelDeliveryStatus(status)}
     </span>
   );
 }

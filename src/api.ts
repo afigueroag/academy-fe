@@ -1,6 +1,15 @@
 import type {
   AcademyUpdate,
   ActiveSessionRead,
+  AnnouncementCreate,
+  AnnouncementPreviewRequest,
+  AnnouncementPreviewResponse,
+  AnnouncementRead,
+  AnnouncementRecipientRead,
+  AnnouncementUpdate,
+  AudiencePreviewRequest,
+  AudiencePreviewResponse,
+  DebtReminderSuggestRequest,
   AttendanceCreate,
   AttendanceMatrixRead,
   AttendanceRead,
@@ -38,8 +47,10 @@ import type {
   InstructorPmtParams,
   InstructorPmtRead,
   InviteToken,
+  ListAnnouncementsParams,
   ListAttendanceParams,
   ListCoursesParams,
+  ListRecipientsParams,
   ListEnrollmentsParams,
   ListRecurringTransactionsParams,
   ListTransactionsParams,
@@ -918,4 +929,138 @@ export async function getInstructorPmt(
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as InstructorPmtRead;
+}
+
+// ---------- Comunicados ----------
+
+export async function listAnnouncements(
+  params: ListAnnouncementsParams = {},
+): Promise<AnnouncementRead[]> {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  if (params.category) q.set('category', params.category);
+  if (params.search) q.set('search', params.search);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(`/announcements${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead[];
+}
+
+export async function getAnnouncement(id: number): Promise<AnnouncementRead> {
+  const res = await authFetch(`/announcements/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead;
+}
+
+export async function createAnnouncement(
+  payload: AnnouncementCreate,
+): Promise<AnnouncementRead> {
+  const res = await authFetch('/announcements', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead;
+}
+
+export async function updateAnnouncement(
+  id: number,
+  payload: AnnouncementUpdate,
+): Promise<AnnouncementRead> {
+  const res = await authFetch(`/announcements/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead;
+}
+
+export async function deleteAnnouncement(id: number): Promise<void> {
+  const res = await authFetch(`/announcements/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+}
+
+export async function sendAnnouncement(id: number): Promise<AnnouncementRead> {
+  const res = await authFetch(`/announcements/${id}/send`, { method: 'POST' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead;
+}
+
+export async function previewAnnouncement(
+  payload: AnnouncementPreviewRequest,
+): Promise<AnnouncementPreviewResponse> {
+  const res = await authFetch('/announcements/preview', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementPreviewResponse;
+}
+
+// Sugiere un borrador de recordatorio de deuda (asunto + prosa + audiencia).
+// `userId` presente → 1 alumno; ausente → masivo (todos con deuda). El front solo
+// pre-llena el compositor; el alta ocurre con createAnnouncement al guardar/enviar.
+export async function suggestDebtReminder(
+  userId?: number | null,
+): Promise<AnnouncementCreate> {
+  const payload: DebtReminderSuggestRequest = { user_id: userId ?? null };
+  const res = await authFetch('/announcements/debt-reminder/suggest', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementCreate;
+}
+
+export async function previewAudience(
+  payload: AudiencePreviewRequest,
+): Promise<AudiencePreviewResponse> {
+  const res = await authFetch('/announcements/audience/preview', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AudiencePreviewResponse;
+}
+
+export async function listRecipients(
+  id: number,
+  params: ListRecipientsParams = {},
+): Promise<AnnouncementRecipientRead[]> {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(
+    `/announcements/${id}/recipients${qs ? `?${qs}` : ''}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRecipientRead[];
+}
+
+export async function resendRecipient(
+  id: number,
+  recipientId: number,
+): Promise<AnnouncementRecipientRead> {
+  const res = await authFetch(
+    `/announcements/${id}/recipients/${recipientId}/resend`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRecipientRead;
+}
+
+export async function listMyAnnouncements(
+  params: { skip?: number; limit?: number } = {},
+): Promise<AnnouncementRead[]> {
+  const q = new URLSearchParams();
+  if (params.skip !== undefined) q.set('skip', String(params.skip));
+  if (params.limit !== undefined) q.set('limit', String(params.limit));
+  const qs = q.toString();
+  const res = await authFetch(`/me/announcements${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AnnouncementRead[];
 }

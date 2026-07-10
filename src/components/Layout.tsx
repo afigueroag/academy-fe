@@ -10,6 +10,7 @@ import {
   ListIcon,
   Logo,
   LogoutIcon,
+  MailIcon,
   SettingsIcon,
   UsersIcon,
   WalletIcon,
@@ -63,6 +64,15 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 <span>Clases</span>
               </NavLink>
               <NavLink
+                to="/mis-comunicados"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <MailIcon size={18} />
+                <span>Comunicados</span>
+              </NavLink>
+              <NavLink
                 to="/configuracion"
                 className={({ isActive }) =>
                   'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
@@ -91,6 +101,15 @@ export default function Layout({ title, actions, children }: LayoutProps) {
               >
                 <GraduationIcon size={18} />
                 <span>Mis clases</span>
+              </NavLink>
+              <NavLink
+                to="/mis-comunicados"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <MailIcon size={18} />
+                <span>Comunicados</span>
               </NavLink>
               <NavLink
                 to="/configuracion"
@@ -173,6 +192,15 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                   <span>Finanzas</span>
                 </NavLink>
               )}
+              <NavLink
+                to="/comunicados"
+                className={({ isActive }) =>
+                  'sidebar__link' + (isActive ? ' sidebar__link--active' : '')
+                }
+              >
+                <MailIcon size={18} />
+                <span>Comunicados</span>
+              </NavLink>
               {me?.role === 'admin' && (
                 <NavLink
                   to="/ajustes"

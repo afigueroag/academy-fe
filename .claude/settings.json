@@ -24,7 +24,8 @@
       "PowerShell(npm run lint 2>&1)",
       "PowerShell(npm run typecheck 2>&1 | Select-String -Pattern \"error|Error\" | Select-Object -First 20; Write-Output \"DONE exit=$LASTEXITCODE\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
-      "Bash(grep -rn \"API_BASE\\\\|baseUrl\\\\|BASE_URL\\\\|VITE_API\\\\|fetch\\(\\\\`\\\\|localhost:8000\\\\|authFetch = \\\\|const API\" src/api.ts)"
+      "Bash(grep -rn \"API_BASE\\\\|baseUrl\\\\|BASE_URL\\\\|VITE_API\\\\|fetch\\(\\\\`\\\\|localhost:8000\\\\|authFetch = \\\\|const API\" src/api.ts)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const p=JSON.parse\\(d\\);console.log\\('scripts:',JSON.stringify\\(p.scripts\\)\\)}\\)\")"
     ]
   }
 }

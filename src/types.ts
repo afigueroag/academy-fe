@@ -1117,3 +1117,159 @@ export interface FinancePayrollRead {
   by_month: MonthPoint[];
   upcoming: UpcomingPayrollRow[];
 }
+
+// ---------- Comunicados ----------
+// Derivados de los schemas Announcement*/Audience*/DeliveryStatus del OpenAPI.
+// Ciclo de vida real: draft → sending → sent/failed. `channels` siempre ['email']
+// y `audience.contact_types` siempre ['self'] (constantes, no se exponen en UI).
+
+export type AnnouncementStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'failed';
+// Plantilla de render del correo. 'plain' = body compartido tal cual; 'debt_reminder'
+// = el backend inyecta el bloque de deuda por destinatario (snapshot al enviar).
+export type AnnouncementTemplate = 'plain' | 'debt_reminder';
+export type AnnouncementCategory =
+  | 'debt_reminder'
+  | 'discount'
+  | 'event'
+  | 'holiday'
+  | 'general';
+export type AnnouncementChannel = 'email' | 'sms' | 'whatsapp';
+export type AnnouncementContactType = 'self' | 'father' | 'mother' | 'external';
+export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'read';
+
+export interface AnnouncementAudience {
+  everyone?: boolean; // default false
+  roles?: UserRole[] | null;
+  group_ids?: number[] | null;
+  course_ids?: number[] | null;
+  user_ids?: number[] | null;
+  with_debt?: boolean | null; // true=solo con deuda, false=solo sin, omitido=no filtra
+  contact_types?: AnnouncementContactType[]; // default ['self'] — fijo, no exponer
+}
+
+export interface AnnouncementCreate {
+  subject?: string | null;
+  body: string; // texto plano; respeta saltos de línea, NO HTML
+  category?: AnnouncementCategory; // default 'general'
+  template?: AnnouncementTemplate; // default 'plain'
+  channels?: AnnouncementChannel[]; // default ['email'] — fijo
+  audience: AnnouncementAudience;
+  scheduled_at?: string | null; // se guarda pero no auto-envía; no exponer
+}
+
+export interface AnnouncementUpdate {
+  subject?: string | null;
+  body?: string | null;
+  category?: AnnouncementCategory | null;
+  template?: AnnouncementTemplate | null;
+  channels?: AnnouncementChannel[] | null;
+  audience?: AnnouncementAudience | null;
+  scheduled_at?: string | null;
+}
+
+export interface AnnouncementRead {
+  id: number;
+  subject: string | null;
+  body: string;
+  category: AnnouncementCategory;
+  template: AnnouncementTemplate;
+  channels: AnnouncementChannel[];
+  audience: AnnouncementAudience | null;
+  status: AnnouncementStatus;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  created_by_id: number | null;
+  created_at: string | null;
+}
+
+export interface AnnouncementRecipientRead {
+  id: number;
+  user_id: number | null;
+  contact_type: AnnouncementContactType;
+  channel: AnnouncementChannel;
+  destination: string;
+  recipient_name: string | null;
+  status: DeliveryStatus;
+  provider_message_id: string | null;
+  error: string | null;
+  // Snapshot de la deuda usada al enviar (solo template 'debt_reminder'); null en 'plain'.
+  context: DebtSnapshot | null;
+  sent_at: string | null;
+  user: UserPublic | null;
+}
+
+// Un adeudo puntual incluido en el bloque de deuda del correo. Montos en cents.
+export interface DebtItem {
+  description: string | null;
+  category: TransactionCategory;
+  amount: number;
+  period_start: string | null;
+  period_end: string | null;
+  overdue: boolean;
+}
+
+// Fotografía de la deuda del destinatario al momento del envío. Montos en cents.
+export interface DebtSnapshot {
+  amount: number;
+  currency: string;
+  next_due_date: string | null;
+  items: DebtItem[];
+}
+
+export interface DebtReminderSuggestRequest {
+  user_id?: number | null; // presente = 1 alumno; ausente = masivo (con deuda)
+}
+
+export interface AnnouncementPreviewRequest {
+  subject?: string | null;
+  body: string;
+  channel?: AnnouncementChannel; // default 'email'
+  template?: AnnouncementTemplate; // default 'plain'
+  user_id?: number | null; // destinatario para renderizar el bloque de deuda real
+}
+
+export interface AnnouncementPreviewResponse {
+  subject: string | null;
+  content: string; // HTML final del correo
+}
+
+export interface AudiencePreviewItem {
+  user_id: number | null;
+  recipient_name: string | null;
+  contact_type: AnnouncementContactType;
+  channel: AnnouncementChannel;
+  destination: string;
+}
+
+export interface AudiencePreviewRequest {
+  channels?: AnnouncementChannel[]; // default ['email']
+  audience: AnnouncementAudience;
+  template?: AnnouncementTemplate; // default 'plain' — 'debt_reminder' cuenta solo deudores
+}
+
+export interface AudiencePreviewResponse {
+  total: number;
+  sample: AudiencePreviewItem[];
+}
+
+export interface ListAnnouncementsParams {
+  status?: AnnouncementStatus;
+  category?: AnnouncementCategory;
+  search?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface ListRecipientsParams {
+  status?: DeliveryStatus;
+  skip?: number;
+  limit?: number;
+}

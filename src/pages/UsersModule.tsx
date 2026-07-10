@@ -10,6 +10,7 @@ import InviteResult from '../components/InviteResult';
 import UserDetails from '../components/UserDetails';
 import RegisterPaymentForm from '../components/RegisterPaymentForm';
 import RecurringForm from '../components/RecurringForm';
+import AnnouncementComposer from '../components/AnnouncementComposer';
 import { useAuth } from '../auth';
 import {
   ApiError,
@@ -22,11 +23,13 @@ import {
   getTransactionsSummary,
   inviteUser,
   listUsers,
+  suggestDebtReminder,
   updateRecurringTransaction,
   updateTransaction,
   updateUser,
 } from '../api';
 import type {
+  AnnouncementCreate,
   Debt,
   FinancePayrollKpis,
   RecurringTransactionCreate,
@@ -238,6 +241,13 @@ export default function UsersModule(props: UsersModuleProps) {
     link: string;
   } | null>(null);
 
+  // Recordatorio de deuda por-estudiante (panel independiente de la máquina `panel`).
+  const [debtUser, setDebtUser] = useState<UserRead | null>(null);
+  const [debtInitial, setDebtInitial] = useState<AnnouncementCreate | null>(null);
+  const [debtError, setDebtError] = useState<string | null>(null);
+  // Admin y recepción pueden mandar recordatorios de deuda.
+  const canSendDebt = me?.role === 'admin' || me?.role === 'receptionist';
+
   const [toDelete, setToDelete] = useState<UserRead | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -394,6 +404,25 @@ export default function UsersModule(props: UsersModuleProps) {
     setPanelError(null);
     setPanelApiError(null);
     setPanel({ kind: 'rec-edit', user, rec });
+  };
+  const openDebtReminder = async (user: UserRead) => {
+    setDebtUser(user);
+    setDebtInitial(null);
+    setDebtError(null);
+    try {
+      setDebtInitial(await suggestDebtReminder(user.id));
+    } catch (err) {
+      setDebtError(
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudo preparar el recordatorio de deuda.',
+      );
+    }
+  };
+  const closeDebtReminder = () => {
+    setDebtUser(null);
+    setDebtInitial(null);
+    setDebtError(null);
   };
 
   const handleInvite = async (payload: UserInvite) => {
@@ -999,6 +1028,17 @@ export default function UsersModule(props: UsersModuleProps) {
                                 <CheckIcon size={14} />
                               </button>
                             )}
+                          {showDebtColumns && canSendDebt && hasDebt && (
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => openDebtReminder(u)}
+                              title="Enviar recordatorio de deuda"
+                              aria-label="Enviar recordatorio de deuda"
+                            >
+                              <MailIcon size={14} />
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="icon-btn"
@@ -1239,6 +1279,38 @@ export default function UsersModule(props: UsersModuleProps) {
             apiError={panelApiError}
           />
         )}
+      </SidePanel>
+
+      <SidePanel
+        open={!!debtUser}
+        title="Recordatorio de deuda"
+        subtitle={
+          debtUser ? `${debtUser.first_name} ${debtUser.last_name}` : undefined
+        }
+        onClose={closeDebtReminder}
+      >
+        {debtUser &&
+          (debtError ? (
+            <div className="alert" role="alert">
+              {debtError}
+            </div>
+          ) : !debtInitial ? (
+            <div className="loading-row">
+              <SpinnerIcon size={16} /> Preparando recordatorio…
+            </div>
+          ) : (
+            <AnnouncementComposer
+              initial={debtInitial}
+              template="debt_reminder"
+              lockedUser={{
+                id: debtUser.id,
+                name: `${debtUser.first_name} ${debtUser.last_name}`,
+              }}
+              role={me?.role}
+              onClose={closeDebtReminder}
+              onChanged={fetchList}
+            />
+          ))}
       </SidePanel>
 
       <ConfirmModal

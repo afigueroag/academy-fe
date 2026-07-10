@@ -6,6 +6,8 @@ import Instructors from './pages/Instructors';
 import Classes from './pages/Classes';
 import Groups from './pages/Groups';
 import Sales from './pages/Sales';
+import Announcements from './pages/Announcements';
+import StudentAnnouncements from './pages/StudentAnnouncements';
 import Gastos from './pages/Gastos';
 import Dashboard from './pages/Dashboard';
 import AcademyConfig from './pages/AcademyConfig';
@@ -87,6 +89,14 @@ export default function App() {
         }
       />
       <Route
+        path="/comunicados"
+        element={
+          <RoleRoute allow={['admin', 'receptionist']}>
+            <Announcements />
+          </RoleRoute>
+        }
+      />
+      <Route
         path="/dashboard"
         element={
           <RoleRoute allow={['admin']}>
@@ -140,6 +150,14 @@ export default function App() {
         element={
           <RoleRoute allow={[...SELF_SERVICE_ROLES]}>
             <ConfigDispatcher />
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/mis-comunicados"
+        element={
+          <RoleRoute allow={[...SELF_SERVICE_ROLES]}>
+            <StudentAnnouncements />
           </RoleRoute>
         }
       />

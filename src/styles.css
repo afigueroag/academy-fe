@@ -4166,3 +4166,308 @@ button {
   font-weight: 600;
   color: var(--color-text);
 }
+
+/* ---------- Comunicados ---------- */
+
+/* Estados del comunicado */
+.badge--ann-draft {
+  background: #F3F4F6;
+  color: #4B5563;
+}
+.badge--ann-scheduled {
+  background: #E0E7FF;
+  color: #3730A3;
+}
+.badge--ann-sending {
+  background: #FEF3C7;
+  color: #92400E;
+}
+.badge--ann-sent {
+  background: #DCFCE7;
+  color: #166534;
+}
+.badge--ann-failed {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+/* Estados de entrega por destinatario */
+.badge--delivery-pending {
+  background: #F3F4F6;
+  color: #4B5563;
+}
+.badge--delivery-sent {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+.badge--delivery-delivered {
+  background: #DCFCE7;
+  color: #166534;
+}
+.badge--delivery-failed {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+.badge--delivery-read {
+  background: #EDE9FE;
+  color: #5B21B6;
+}
+
+/* Formulario de composición */
+.announcement-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.announcement-audience {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 3%, var(--color-surface));
+}
+
+.announcement-audience__segment {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-chip input {
+  accent-color: var(--color-primary);
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.removable-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-primary) 12%, white);
+  color: var(--color-text);
+}
+
+.removable-chip__remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  padding: 0 2px;
+}
+
+.removable-chip__remove:hover {
+  color: var(--color-danger);
+}
+
+.audience-preview {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.audience-preview__count {
+  margin: 0;
+  font-size: 15px;
+}
+
+.audience-preview__sample {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* Vista previa del correo */
+.email-preview-modal {
+  width: min(640px, 92vw);
+  max-width: 92vw;
+  padding: 0;
+  overflow: hidden;
+}
+
+.email-preview-modal__banner {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-accent) 12%, white);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.email-preview-modal__frame {
+  width: 100%;
+  height: 60vh;
+  border: none;
+  background: white;
+  display: block;
+}
+
+.email-preview-modal .modal__actions {
+  padding: 12px 16px;
+}
+
+/* Detalle del comunicado */
+.announcement-detail__head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.announcement-detail__subject {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+}
+
+.announcement-detail__body {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--color-text);
+  margin-bottom: 18px;
+}
+
+/* Barra de progreso de envío */
+.send-progress {
+  margin-bottom: 18px;
+}
+
+.send-progress__bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.send-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    var(--color-secondary)
+  );
+  transition: width 0.4s ease;
+}
+
+.send-progress__fill--active {
+  animation: send-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes send-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.send-progress__label {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.send-progress__failed {
+  color: var(--color-danger);
+}
+
+/* Aviso de modo recordatorio de deuda en el compositor */
+.announcement-debt-note {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Destinatarios */
+.recipients-panel__error {
+  font-size: 12px;
+  color: var(--color-danger);
+  margin-top: 4px;
+}
+
+.recipients-panel__context {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* Bandeja del alumno */
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inbox-item {
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.inbox-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inbox-item__date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.inbox-item__subject {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.inbox-item__body {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--color-text);
+}
