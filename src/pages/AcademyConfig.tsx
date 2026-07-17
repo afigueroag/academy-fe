@@ -3,11 +3,20 @@ import {
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from 'react';
 import Layout from '../components/Layout';
+import ConfirmModal from '../components/ConfirmModal';
+import PaymentAccountsSection from '../components/PaymentAccountsSection';
 import { useAuth } from '../auth';
-import { ApiError, getMe, updateAcademy } from '../api';
+import {
+  ApiError,
+  deleteAcademyLogo,
+  getMe,
+  updateAcademy,
+  uploadAcademyLogo,
+} from '../api';
 import { SpinnerIcon } from '../brand';
 import { fromCents, toCents } from '../utils/money';
 import { stripHash } from '../theme';
@@ -48,6 +57,14 @@ const WEEKEND_OPTIONS: { value: WeekendBillingBehavior; label: string }[] = [
   { value: 'shift_previous', label: 'Mover al día hábil anterior' },
   { value: 'shift_next', label: 'Mover al día hábil siguiente' },
 ];
+
+const LOGO_ALLOWED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/svg+xml',
+];
+const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
 const MONTHS_ES = [
   'Enero',
@@ -182,6 +199,70 @@ export default function AcademyConfig() {
     toastTimer.current = window.setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [confirmRemoveLogo, setConfirmRemoveLogo] = useState(false);
+
+  const handleLogoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite volver a elegir el mismo archivo
+    if (!file || !me) return;
+    if (!LOGO_ALLOWED_TYPES.includes(file.type)) {
+      setError('Formato no permitido. Usa PNG, JPEG, WEBP o SVG.');
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setError('El logo supera el máximo de 2 MB.');
+      return;
+    }
+    setLogoBusy(true);
+    setError(null);
+    try {
+      const academy = await uploadAcademyLogo(me.academy.id, file);
+      setMe({ ...me, academy }); // refresca el logo del encabezado
+      showToast('Logo actualizado');
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Ocurrió un error, intenta de nuevo',
+      );
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  // Tras crear/editar/eliminar una cuenta de cobro, refresca /me para que el flag
+  // has_active_payment_account (que habilita el botón de pago) quede al día.
+  const refreshMe = useCallback(async () => {
+    try {
+      const fresh = await getMe();
+      setMe(fresh);
+    } catch {
+      // Si falla, el flag se actualizará en la próxima carga de /me.
+    }
+  }, [setMe]);
+
+  const handleRemoveLogo = async () => {
+    if (!me) return;
+    setLogoBusy(true);
+    setError(null);
+    try {
+      const academy = await deleteAcademyLogo(me.academy.id);
+      setMe({ ...me, academy });
+      setConfirmRemoveLogo(false);
+      showToast('Logo eliminado');
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Ocurrió un error, intenta de nuevo',
+      );
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (me) setState(fromAcademy(me.academy));
   }, [me]);
@@ -272,6 +353,55 @@ export default function AcademyConfig() {
           {toast}
         </div>
       )}
+
+      <section className="config-section">
+        <h3 className="form-section__title">Logo</h3>
+        <div className="logo-config">
+          <div className="logo-config__preview">
+            {me.academy.logo_url ? (
+              <img
+                src={me.academy.logo_url}
+                alt={`Logo de ${me.academy.name}`}
+              />
+            ) : (
+              <span className="logo-config__empty">Sin logo</span>
+            )}
+          </div>
+          <div className="logo-config__actions">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={handleLogoFile}
+              style={{ display: 'none' }}
+            />
+            <div className="logo-config__buttons">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoBusy}
+              >
+                {logoBusy && <SpinnerIcon />}
+                {me.academy.logo_url ? 'Cambiar logo' : 'Subir logo'}
+              </button>
+              {me.academy.logo_url && (
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={() => setConfirmRemoveLogo(true)}
+                  disabled={logoBusy}
+                >
+                  Quitar logo
+                </button>
+              )}
+            </div>
+            <span className="field__hint">
+              PNG, JPEG, WEBP o SVG. Máximo 2 MB.
+            </span>
+          </div>
+        </div>
+      </section>
 
       <form onSubmit={handleSubmit} noValidate>
         <section className="config-section">
@@ -674,6 +804,19 @@ export default function AcademyConfig() {
           </button>
         </div>
       </form>
+
+      <PaymentAccountsSection onAccountsChanged={refreshMe} />
+
+      <ConfirmModal
+        open={confirmRemoveLogo}
+        title="Quitar logo"
+        message="¿Seguro que quieres quitar el logo de la academia? Se mostrará solo el nombre."
+        confirmLabel="Quitar"
+        danger
+        loading={logoBusy}
+        onConfirm={handleRemoveLogo}
+        onCancel={() => setConfirmRemoveLogo(false)}
+      />
     </Layout>
   );
 }

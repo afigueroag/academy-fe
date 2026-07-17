@@ -27,6 +27,7 @@ export type PaymentMethod =
   | 'paypal'
   | 'bank_transfer'
   | 'cash'
+  | 'ath_movil'
   | 'other';
 
 export type CourseStatus = 'active' | 'draft' | 'archived';
@@ -135,6 +136,12 @@ export interface AcademyMe {
   weekend_billing_behavior: WeekendBillingBehavior | null;
   // Días de gracia para pagar a partir del día de cobro (default 7).
   payment_grace_days: number | null;
+  // URL pública, directa y cacheable del logo de la academia; null si no hay logo.
+  // Read-only: se sube/quita con POST/DELETE /academies/{id}/logo.
+  logo_url: string | null;
+  // Habilita el botón de "Pagar con ATH Móvil": true si la academia tiene al
+  // menos una cuenta de cobro activa. Signal rol-agnóstico que llega vía /me.
+  has_active_payment_account: boolean;
 }
 
 // Campos editables de la academia desde la pantalla de configuración (admin).
@@ -468,6 +475,72 @@ export interface TransactionRead extends TransactionCreate {
   amount: number;
   id: number;
   user: UserPublic | null;
+}
+
+// ---------- Pagos (ATH Móvil) ----------
+// Cuentas de cobro por academia y el flujo de pago asíncrono contra una
+// Transaction. El frontend solo INICIA el pago (POST /payments) y luego refleja
+// el resultado haciendo poll a GET /transactions/{id} hasta status === 'paid';
+// la confirmación y captura las resuelve el job `reconcile_payment_intents`.
+
+export type PaymentProvider = 'ath_movil' | 'stripe' | 'paypal';
+
+export type PaymentEnvironment = 'sandbox' | 'production';
+
+// open → confirm → completed (pagado), o cancel (expirado/cancelado).
+export type PaymentIntentStatus = 'open' | 'confirm' | 'completed' | 'cancel';
+
+// Solo enviamos `public_token`. `private_token` queda reservado para el futuro:
+// no se pide ni se envía. En lecturas el backend nunca devuelve el token, solo
+// `public_token_masked` en PaymentAccountRead.
+export interface ATHMovilCredentials {
+  public_token: string;
+}
+
+export interface PaymentAccountRead {
+  id: number;
+  provider: PaymentProvider;
+  display_name: string | null;
+  environment: PaymentEnvironment;
+  is_active: boolean;
+  is_default: boolean;
+  // Token enmascarado (ej. "****1234"); el backend nunca devuelve el token real.
+  public_token_masked: string | null;
+}
+
+export interface PaymentAccountCreate {
+  provider: PaymentProvider;
+  display_name?: string | null;
+  environment?: PaymentEnvironment; // default backend: 'sandbox'
+  is_default?: boolean; // el backend garantiza una sola default por academia
+  credentials: ATHMovilCredentials;
+}
+
+// Para "cambiar token" se reenvía `credentials`. Omitir credentials deja el
+// token actual intacto.
+export interface PaymentAccountUpdate {
+  display_name?: string | null;
+  environment?: PaymentEnvironment | null;
+  is_active?: boolean | null;
+  is_default?: boolean | null;
+  credentials?: ATHMovilCredentials | null;
+}
+
+// Todo pago va SIEMPRE contra una Transaction existente (pending).
+export interface PaymentCreate {
+  transaction_id: number;
+  // Teléfono ATH Móvil del pagador al que llega el push de confirmación. En caja
+  // lo teclea recepción; en línea, el propio estudiante.
+  phone: string;
+  description?: string | null;
+}
+
+export interface PaymentIntentRead {
+  id: number;
+  ecommerce_id: string;
+  status: PaymentIntentStatus;
+  amount: number; // cents
+  transaction_id: number | null;
 }
 
 export interface TransactionSummary {

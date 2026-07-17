@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import SidePanel from '../components/SidePanel';
 import StudentCourseDetail from '../components/StudentCourseDetail';
+import AthPaymentPanel from '../components/AthPaymentPanel';
 import { useAuth } from '../auth';
 import { ApiError, getMeHome } from '../api';
 import { formatMoney } from '../utils/money';
@@ -96,35 +97,32 @@ export default function StudentHome() {
   const { me } = useAuth();
   const navigate = useNavigate();
   const currency = me?.academy.currency ?? null;
+  // Pago en línea disponible solo si la academia tiene una cuenta de cobro activa.
+  const athEnabled = me?.academy.has_active_payment_account === true;
 
   const [home, setHome] = useState<HomeMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'pending' | 'scheduled'>('pending');
   const [panelCourse, setPanelCourse] = useState<CourseStudentRead | null>(null);
+  const [payTx, setPayTx] = useState<TransactionRead | null>(null);
+
+  const loadHome = useCallback(async () => {
+    try {
+      const data = await getMeHome();
+      setHome(data);
+      setError(null);
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else setError('Ocurrió un error, intenta de nuevo');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getMeHome();
-        if (!cancelled) {
-          setHome(data);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          if (err instanceof ApiError) setError(err.message);
-          else setError('Ocurrió un error, intenta de nuevo');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadHome();
+  }, [loadHome]);
 
   if (loading) {
     return (
@@ -249,6 +247,15 @@ export default function StudentHome() {
                   <div className="payment-row__amount">
                     {formatMoney(tx.amount, currency)}
                   </div>
+                  {tab === 'pending' && athEnabled && (
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--sm"
+                      onClick={() => setPayTx(tx)}
+                    >
+                      Pagar
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -327,6 +334,24 @@ export default function StudentHome() {
       >
         {panelCourse && (
           <StudentCourseDetail course={panelCourse} currency={currency} />
+        )}
+      </SidePanel>
+
+      <SidePanel
+        open={!!payTx}
+        title="Pagar con ATH Móvil"
+        subtitle={payTx?.description}
+        onClose={() => setPayTx(null)}
+      >
+        {payTx && (
+          <AthPaymentPanel
+            transactionId={payTx.id}
+            description={payTx.description}
+            amount={payTx.amount}
+            currency={currency}
+            onPaid={loadHome}
+            onClose={() => setPayTx(null)}
+          />
         )}
       </SidePanel>
     </Layout>

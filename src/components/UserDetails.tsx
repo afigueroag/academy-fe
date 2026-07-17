@@ -32,6 +32,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   paypal: 'PayPal',
   bank_transfer: 'Transferencia bancaria',
   cash: 'Efectivo',
+  ath_movil: 'ATH Móvil',
   other: 'Otro',
 };
 

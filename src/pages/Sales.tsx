@@ -7,6 +7,7 @@ import { TransactionStatusBadge } from '../components/Badges';
 import TransactionForm from '../components/TransactionForm';
 import TransactionDetails from '../components/TransactionDetails';
 import RegisterPaymentForm from '../components/RegisterPaymentForm';
+import AthPaymentPanel from '../components/AthPaymentPanel';
 import RecurringForm from '../components/RecurringForm';
 import { useAuth } from '../auth';
 import {
@@ -61,6 +62,7 @@ type PanelState =
   | { kind: 'view'; tx: TransactionRead }
   | { kind: 'edit'; tx: TransactionRead }
   | { kind: 'pay'; tx: TransactionRead }
+  | { kind: 'ath'; tx: TransactionRead }
   | { kind: 'rec-create' }
   | { kind: 'rec-edit'; rec: RecurringTransactionRead }
   | null;
@@ -215,6 +217,8 @@ export default function Sales() {
   const isReceptionist = role === 'receptionist';
   const isAdmin = role === 'admin';
   const currency = me?.academy.currency ?? null;
+  // ATH Móvil solo se ofrece si la academia tiene una cuenta de cobro activa.
+  const athEnabled = me?.academy.has_active_payment_account === true;
 
   const [status, setStatus] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
@@ -442,6 +446,28 @@ export default function Sales() {
       showToast('Transacción creada');
       setPanel(null);
       refreshAll();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPanelApiError(err);
+        setPanelError(err.message);
+      } else {
+        setPanelError('No se pudo crear la transacción.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Crea la transacción y pasa directo a cobrarla con ATH Móvil (sin doble paso).
+  const handleCreateAndPay = async (payload: TransactionCreate) => {
+    setSubmitting(true);
+    setPanelError(null);
+    setPanelApiError(null);
+    try {
+      const tx = await createTransaction(payload);
+      showToast('Transacción creada');
+      refreshAll();
+      setPanel({ kind: 'ath', tx });
     } catch (err) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
@@ -1187,6 +1213,7 @@ export default function Sales() {
           <TransactionForm
             mode="create"
             onSubmit={handleCreate}
+            onSubmitAndPay={athEnabled ? handleCreateAndPay : undefined}
             onCancel={closePanel}
             submitting={submitting}
             serverError={panelError}
@@ -1253,10 +1280,33 @@ export default function Sales() {
             }
             currency={currency}
             onSubmit={(payload) => handlePay(panel.tx.id, payload)}
+            onPayWithAth={
+              athEnabled
+                ? () => setPanel({ kind: 'ath', tx: panel.tx })
+                : undefined
+            }
             onCancel={closePanel}
             submitting={submitting}
             serverError={panelError}
             apiError={panelApiError}
+          />
+        )}
+      </SidePanel>
+
+      <SidePanel
+        open={panel?.kind === 'ath'}
+        title="Pagar con ATH Móvil"
+        subtitle={panel?.kind === 'ath' ? panel.tx.description : undefined}
+        onClose={closePanel}
+      >
+        {panel?.kind === 'ath' && (
+          <AthPaymentPanel
+            transactionId={panel.tx.id}
+            description={panel.tx.description}
+            amount={panel.tx.amount}
+            currency={currency}
+            onPaid={refreshAll}
+            onClose={closePanel}
           />
         )}
       </SidePanel>

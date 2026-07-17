@@ -614,8 +614,26 @@ button {
 .sidebar__brand {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 0 10px 18px;
   color: var(--color-text);
+}
+
+.sidebar__brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.sidebar__brand-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 880px) {
@@ -2921,6 +2939,58 @@ button {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
+}
+
+/* Encabezado de sección con acción a la derecha (ej. "Nueva cuenta"). */
+.config-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Sección de logo de la academia: vista previa + acciones. */
+.logo-config {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.logo-config__preview {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.logo-config__preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.logo-config__empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.logo-config__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logo-config__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Fila compacta para campos chicos (números, colores): se alinean en línea

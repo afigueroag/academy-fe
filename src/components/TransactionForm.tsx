@@ -10,7 +10,7 @@ import type {
 } from '../types';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
-import { SpinnerIcon } from '../brand';
+import { SpinnerIcon, WalletIcon } from '../brand';
 import UserAutocomplete from './UserAutocomplete';
 import { formatMoney, fromCents, toCents } from '../utils/money';
 import {
@@ -18,16 +18,8 @@ import {
   labelPaymentMethod,
   labelTransactionCategory,
   labelTransactionStatus,
+  paymentMethodsFor,
 } from '../utils/salesLabels';
-
-const PAYMENT_OPTIONS: PaymentMethod[] = [
-  'credit_card',
-  'debit_card',
-  'bank_transfer',
-  'paypal',
-  'cash',
-  'other',
-];
 
 const STATUS_OPTIONS: TransactionStatus[] = [
   'scheduled',
@@ -157,6 +149,9 @@ interface CreateProps extends BaseProps {
   mode: 'create';
   prefill?: TransactionPrefill;
   onSubmit: (payload: TransactionCreate) => Promise<void>;
+  // Si se provee (solo en caja con ATH habilitado), muestra un botón extra para
+  // crear la transacción y pasar directo a cobrarla con ATH Móvil, sin doble paso.
+  onSubmitAndPay?: (payload: TransactionCreate) => Promise<void>;
 }
 
 interface EditProps extends BaseProps {
@@ -173,6 +168,8 @@ export default function TransactionForm(props: TransactionFormProps) {
   const isExpense = kind === 'expense';
   const { me } = useAuth();
   const currency = me?.academy.currency ?? null;
+  // ATH Móvil solo se lista como método de pago para academias en PR.
+  const paymentOptions = paymentMethodsFor(me?.academy.country);
 
   const prefill = mode === 'create' ? props.prefill : undefined;
 
@@ -264,12 +261,11 @@ export default function TransactionForm(props: TransactionFormProps) {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const buildPayload = (): TransactionCreate | null => {
+    if (!validate()) return null;
 
     const grossCents = toCents(state.gross_amount);
-    if (grossCents === null) return;
+    if (grossCents === null) return null;
 
     const discount_amount =
       state.discount_kind === 'fixed' ? toCents(state.discount_value) : null;
@@ -318,7 +314,21 @@ export default function TransactionForm(props: TransactionFormProps) {
       discount_id: inheritedDiscountId,
     };
 
+    return payload;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const payload = buildPayload();
+    if (!payload) return;
     await props.onSubmit(payload);
+  };
+
+  const handleCreateAndPay = async () => {
+    if (props.mode !== 'create' || !props.onSubmitAndPay) return;
+    const payload = buildPayload();
+    if (!payload) return;
+    await props.onSubmitAndPay(payload);
   };
 
   const categories = categoriesForKind(kind);
@@ -629,7 +639,7 @@ export default function TransactionForm(props: TransactionFormProps) {
               aria-invalid={!!errors.payment_method}
             >
               <option value="">— Selecciona —</option>
-              {PAYMENT_OPTIONS.map((m) => (
+              {paymentOptions.map((m) => (
                 <option key={m} value={m}>
                   {labelPaymentMethod(m)}
                 </option>
@@ -677,6 +687,19 @@ export default function TransactionForm(props: TransactionFormProps) {
         >
           Cancelar
         </button>
+        {props.mode === 'create' &&
+          props.onSubmitAndPay &&
+          state.status !== 'paid' && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={handleCreateAndPay}
+              disabled={submitting}
+            >
+              <WalletIcon size={14} />
+              Crear y cobrar con ATH Móvil
+            </button>
+          )}
         <button
           type="submit"
           className="btn btn--primary"

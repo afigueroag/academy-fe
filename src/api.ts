@@ -1,4 +1,5 @@
 import type {
+  AcademyMe,
   AcademyUpdate,
   ActiveSessionRead,
   AnnouncementCreate,
@@ -56,6 +57,11 @@ import type {
   ListTransactionsParams,
   ListUsersParams,
   PasswordChange,
+  PaymentAccountCreate,
+  PaymentAccountRead,
+  PaymentAccountUpdate,
+  PaymentCreate,
+  PaymentIntentRead,
   RecurringTransactionCreate,
   RecurringTransactionRead,
   RecurringTransactionUpdate,
@@ -274,6 +280,29 @@ export async function updateAcademy(
     body: patch,
   });
   if (!res.ok) throw await parseError(res);
+}
+
+// Sube el logo de la academia (multipart, campo `file`). Tipos permitidos:
+// PNG, JPEG, WEBP, SVG. Máx 2 MB. Devuelve la academia con el nuevo logo_url.
+export async function uploadAcademyLogo(
+  id: number,
+  file: File,
+): Promise<AcademyMe> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await authFetch(`/academies/${id}/logo`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AcademyMe;
+}
+
+// Quita el logo. Devuelve la academia con logo_url en null.
+export async function deleteAcademyLogo(id: number): Promise<AcademyMe> {
+  const res = await authFetch(`/academies/${id}/logo`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as AcademyMe;
 }
 
 export async function createUser(payload: UserCreate): Promise<UserRead> {
@@ -606,6 +635,69 @@ export async function deleteTransaction(id: number): Promise<TransactionRead> {
   const res = await authFetch(`/transactions/${id}`, { method: 'DELETE' });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as TransactionRead;
+}
+
+// ---------- Pagos (ATH Móvil) ----------
+// Cuentas de cobro (solo admin) y disparo del pago contra una Transaction. La
+// confirmación/captura las resuelve el backend (job reconcile_payment_intents);
+// el frontend refleja el resultado con poll a getTransaction hasta status 'paid'.
+
+export async function listPaymentAccounts(): Promise<PaymentAccountRead[]> {
+  const res = await authFetch('/payment-accounts');
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentAccountRead[];
+}
+
+export async function getPaymentAccount(
+  id: number,
+): Promise<PaymentAccountRead> {
+  const res = await authFetch(`/payment-accounts/${id}`);
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentAccountRead;
+}
+
+export async function createPaymentAccount(
+  payload: PaymentAccountCreate,
+): Promise<PaymentAccountRead> {
+  const res = await authFetch('/payment-accounts', {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentAccountRead;
+}
+
+export async function updatePaymentAccount(
+  id: number,
+  payload: PaymentAccountUpdate,
+): Promise<PaymentAccountRead> {
+  const res = await authFetch(`/payment-accounts/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentAccountRead;
+}
+
+export async function deletePaymentAccount(
+  id: number,
+): Promise<PaymentAccountRead> {
+  const res = await authFetch(`/payment-accounts/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentAccountRead;
+}
+
+// Inicia un pago ATH Móvil contra una Transaction existente (pending). Devuelve
+// el PaymentIntent en estado 'open'. Errores posibles: 409 (ya hay un pago en
+// curso para esa transacción), 400 (transacción no pagable / sin cuenta de
+// cobro activa), 404 (transacción inexistente) — todos llegan como ApiError con
+// .status y .detail (mensaje legible del backend).
+export async function createPayment(
+  payload: PaymentCreate,
+): Promise<PaymentIntentRead> {
+  const res = await authFetch('/payments', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentIntentRead;
 }
 
 export async function listRecurringTransactions(

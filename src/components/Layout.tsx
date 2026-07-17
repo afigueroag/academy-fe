@@ -8,7 +8,6 @@ import {
   GraduationIcon,
   HomeIcon,
   ListIcon,
-  Logo,
   LogoutIcon,
   MailIcon,
   SettingsIcon,
@@ -39,7 +38,14 @@ export default function Layout({ title, actions, children }: LayoutProps) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar__brand">
-          <Logo size={26} />
+          {me?.academy.logo_url && (
+            <img
+              className="sidebar__brand-logo"
+              src={me.academy.logo_url}
+              alt=""
+            />
+          )}
+          <span className="sidebar__brand-name">{me?.academy.name ?? ''}</span>
         </div>
 
         <nav className="sidebar__nav" aria-label="Navegación principal">

@@ -5,22 +5,15 @@ import type {
   TransactionUpdate,
 } from '../types';
 import { ApiError } from '../api';
-import { SpinnerIcon } from '../brand';
+import { useAuth } from '../auth';
+import { SpinnerIcon, WalletIcon } from '../brand';
 import { fromCents } from '../utils/money';
 import {
   labelPaymentMethod,
   labelTransactionCategory,
+  paymentMethodsFor,
   requiresPaymentReference,
 } from '../utils/salesLabels';
-
-const PAYMENT_OPTIONS: PaymentMethod[] = [
-  'credit_card',
-  'debit_card',
-  'bank_transfer',
-  'paypal',
-  'cash',
-  'other',
-];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -33,6 +26,9 @@ interface RegisterPaymentFormProps {
   submitting: boolean;
   serverError: string | null;
   apiError: ApiError | null;
+  // Si se provee (caja con ATH habilitado), muestra el botón para abrir el flujo
+  // de cobro con ATH Móvil (push al teléfono) en vez de registrar el pago manual.
+  onPayWithAth?: () => void;
 }
 
 export default function RegisterPaymentForm({
@@ -44,7 +40,12 @@ export default function RegisterPaymentForm({
   submitting,
   serverError,
   apiError,
+  onPayWithAth,
 }: RegisterPaymentFormProps) {
+  const { me } = useAuth();
+  // ATH Móvil solo se lista como método de pago manual para academias en PR.
+  const paymentOptions = paymentMethodsFor(me?.academy.country);
+
   const [paidDate, setPaidDate] = useState<string>(todayIso());
   const [method, setMethod] = useState<PaymentMethod | ''>(defaultMethod ?? '');
   const [reference, setReference] = useState('');
@@ -111,6 +112,26 @@ export default function RegisterPaymentForm({
         </div>
       )}
 
+      {onPayWithAth && (
+        <>
+          <button
+            type="button"
+            className="btn btn--primary btn--block"
+            onClick={onPayWithAth}
+            disabled={submitting}
+          >
+            <WalletIcon size={16} />
+            Pagar con ATH Móvil
+          </button>
+          <p
+            className="field__hint"
+            style={{ textAlign: 'center', margin: '10px 0 14px' }}
+          >
+            o registra un pago manual
+          </p>
+        </>
+      )}
+
       <div
         className="detail-list"
         style={{
@@ -165,7 +186,7 @@ export default function RegisterPaymentForm({
             aria-invalid={!!errors.payment_method}
           >
             <option value="">— Selecciona —</option>
-            {PAYMENT_OPTIONS.map((m) => (
+            {paymentOptions.map((m) => (
               <option key={m} value={m}>
                 {labelPaymentMethod(m)}
               </option>

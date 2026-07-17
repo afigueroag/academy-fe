@@ -51,6 +51,7 @@ const PAYMENT: Record<PaymentMethod, string> = {
   paypal: 'PayPal',
   bank_transfer: 'Transferencia',
   cash: 'Efectivo',
+  ath_movil: 'ATH Móvil',
   other: 'Otro',
 };
 
@@ -87,6 +88,27 @@ export function labelTransactionFrequency(v: TransactionFrequency): string {
 
 export function labelPaymentMethod(v: PaymentMethod): string {
   return PAYMENT[v];
+}
+
+// ATH Móvil es un servicio de Puerto Rico: sus opciones de pago solo se ofrecen
+// cuando la academia está registrada en PR.
+export function isPuertoRico(country: string | null | undefined): boolean {
+  const c = (country ?? '').trim().toLowerCase();
+  return c === 'pr' || c === 'puerto rico';
+}
+
+// Métodos de pago manuales disponibles, agregando ATH Móvil solo para PR.
+export function paymentMethodsFor(country: string | null | undefined): PaymentMethod[] {
+  const base: PaymentMethod[] = [
+    'credit_card',
+    'debit_card',
+    'bank_transfer',
+    'paypal',
+    'cash',
+  ];
+  return isPuertoRico(country)
+    ? [...base, 'ath_movil', 'other']
+    : [...base, 'other'];
 }
 
 export function labelEnrollmentFeeMode(v: EnrollmentFeeMode): string {
