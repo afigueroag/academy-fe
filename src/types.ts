@@ -612,7 +612,11 @@ export interface TransactionSummaryParams {
 // Descuento persistente por estudiante (tabla `discount`). El backend lo aplica
 // al generar las recurring transactions; el front solo administra el CRUD.
 
-export type DiscountType = 'family_discount' | 'scholarship' | 'other';
+export type DiscountType =
+  | 'family_discount'
+  | 'scholarship'
+  | 'exchange'
+  | 'other';
 
 export type DiscountValueType = 'percentage' | 'fixed';
 

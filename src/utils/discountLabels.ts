@@ -7,6 +7,7 @@ import type {
 const TYPE: Record<DiscountType, string> = {
   family_discount: 'Familiar',
   scholarship: 'Beca',
+  exchange: 'Intercambio',
   other: 'Otro',
 };
 
@@ -36,6 +37,7 @@ export function labelDiscountAppliesTo(v: DiscountAppliesTo): string {
 export const DISCOUNT_TYPES: DiscountType[] = [
   'family_discount',
   'scholarship',
+  'exchange',
   'other',
 ];
 
