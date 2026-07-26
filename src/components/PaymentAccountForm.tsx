@@ -6,7 +6,8 @@ import type {
   PaymentEnvironment,
 } from '../types';
 import { ApiError } from '../api';
-import { SpinnerIcon } from '../brand';
+import { SpinnerIcon, WarningIcon } from '../brand';
+import { formatDateTime } from '../utils/finance';
 
 const ENVIRONMENT_OPTIONS: { value: PaymentEnvironment; label: string }[] = [
   { value: 'sandbox', label: 'Sandbox (pruebas)' },
@@ -21,6 +22,8 @@ interface PaymentAccountFormProps {
   submitting: boolean;
   serverError: string | null;
   apiError: ApiError | null;
+  // Solo en edición: abre el cobro de prueba de $1. Si no se pasa, no hay botón.
+  onTest?: () => void;
 }
 
 export default function PaymentAccountForm({
@@ -31,6 +34,7 @@ export default function PaymentAccountForm({
   submitting,
   serverError,
   apiError,
+  onTest,
 }: PaymentAccountFormProps) {
   const [displayName, setDisplayName] = useState(account?.display_name ?? '');
   const [environment, setEnvironment] = useState<PaymentEnvironment>(
@@ -46,6 +50,19 @@ export default function PaymentAccountForm({
       setErrors((prev) => ({ ...prev, ...apiError.fieldErrors }));
     }
   }, [apiError]);
+
+  // La cuenta pasó un cobro de prueba completado en algún momento.
+  const verified = !!account?.last_tested_at;
+
+  // La prueba cobra con el token que ya está guardado en el servidor, así que
+  // con cambios pendientes (sobre todo un token nuevo) probaría el anterior.
+  const dirty =
+    !!account &&
+    (displayName.trim() !== (account.display_name ?? '') ||
+      environment !== account.environment ||
+      isDefault !== account.is_default ||
+      isActive !== account.is_active ||
+      publicToken.trim() !== '');
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -155,6 +172,28 @@ export default function PaymentAccountForm({
         <span className="field__error">{errors.public_token ?? ''}</span>
       </div>
 
+      {mode === 'edit' && onTest && (
+        <div className="field">
+          <div>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={onTest}
+              disabled={submitting || dirty}
+            >
+              Probar cuenta con un cobro de $1
+            </button>
+          </div>
+          <span className="field__hint">
+            {dirty
+              ? 'Guarda los cambios antes de probar: la prueba usa el token ya guardado.'
+              : verified
+                ? `Verificada el ${formatDateTime(account?.last_tested_at)}. Puedes repetir la prueba cuando quieras.`
+                : 'Envía un cobro real de $1.00 a un número de ATH Móvil para confirmar que el token funciona.'}
+          </span>
+        </div>
+      )}
+
       <div className="switch-row">
         <div>
           <div className="switch-row__label">Cuenta predeterminada</div>
@@ -172,6 +211,23 @@ export default function PaymentAccountForm({
           <span className="switch__thumb" aria-hidden="true" />
         </label>
       </div>
+
+      {isDefault && !verified && !account?.is_default && (
+        <div className="alert alert--warning" role="note">
+          <span className="alert__head">
+            <WarningIcon size={16} /> Esta cuenta no está verificada
+          </span>
+          <ul className="alert__list">
+            <li>
+              Si el public token está mal, todos los cobros de la academia
+              fallarán.{' '}
+              {onTest
+                ? 'Haz el cobro de prueba de $1 antes de dejarla predeterminada.'
+                : 'Al terminar, entra a editar esta cuenta y haz el cobro de prueba de $1.'}
+            </li>
+          </ul>
+        </div>
+      )}
 
       {mode === 'edit' && (
         <div className="switch-row">

@@ -28,6 +28,7 @@ export type PaymentMethod =
   | 'bank_transfer'
   | 'cash'
   | 'ath_movil'
+  | 'waived'
   | 'other';
 
 export type CourseStatus = 'active' | 'draft' | 'archived';
@@ -506,6 +507,18 @@ export interface PaymentAccountRead {
   is_default: boolean;
   // Token enmascarado (ej. "****1234"); el backend nunca devuelve el token real.
   public_token_masked: string | null;
+  // Cuándo pasó esta cuenta un cobro de prueba COMPLETADO. Null = nunca se
+  // verificó con éxito → hay que advertir antes de dejarla predeterminada.
+  last_tested_at: string | null;
+  // Estado del último intento de prueba, para el badge de la lista sin tener
+  // que llamar a GET /payment-accounts/{id}/test.
+  last_test_status: PaymentIntentStatus | null;
+}
+
+// Cobro de prueba de $1.00: el monto lo fija el backend, aquí solo va el
+// teléfono ATH Móvil que recibe la solicitud y la aprueba en su app.
+export interface PaymentAccountTest {
+  phone: string;
 }
 
 export interface PaymentAccountCreate {

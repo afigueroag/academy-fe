@@ -59,6 +59,7 @@ import type {
   PasswordChange,
   PaymentAccountCreate,
   PaymentAccountRead,
+  PaymentAccountTest,
   PaymentAccountUpdate,
   PaymentCreate,
   PaymentIntentRead,
@@ -685,6 +686,36 @@ export async function deletePaymentAccount(
   const res = await authFetch(`/payment-accounts/${id}`, { method: 'DELETE' });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as PaymentAccountRead;
+}
+
+// Dispara un cobro REAL de $1.00 con el public token de esta cuenta (aunque no
+// sea la predeterminada ni esté activa) para verificar el token. No crea
+// Transaction: el intent viene con transaction_id null y no toca la
+// contabilidad. El monto lo fija el backend. Errores: 400 (ATH Móvil rechazó —
+// el mensaje viene en .message/.detail y se muestra tal cual), 404 (cuenta
+// inexistente), 409 (ya hay una prueba en curso), 429 (máx. 5 pruebas/hora).
+export async function testPaymentAccount(
+  id: number,
+  payload: PaymentAccountTest,
+): Promise<PaymentIntentRead> {
+  const res = await authFetch(`/payment-accounts/${id}/test`, {
+    method: 'POST',
+    body: payload,
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentIntentRead;
+}
+
+// Última prueba de la cuenta, para el poll mientras se espera la aprobación y
+// para retomar una prueba en curso al reabrir la pantalla. Devuelve null si la
+// cuenta nunca se probó (el backend responde 404 en ese caso).
+export async function getPaymentAccountTest(
+  id: number,
+): Promise<PaymentIntentRead | null> {
+  const res = await authFetch(`/payment-accounts/${id}/test`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as PaymentIntentRead;
 }
 
 // Inicia un pago ATH Móvil contra una Transaction existente (pending). Devuelve

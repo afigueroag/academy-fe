@@ -33,6 +33,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: 'Transferencia bancaria',
   cash: 'Efectivo',
   ath_movil: 'ATH Móvil',
+  waived: 'Sin cobro',
   other: 'Otro',
 };
 

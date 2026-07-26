@@ -67,6 +67,21 @@ export function formatMonthLabel(value: string): string {
   return value;
 }
 
+// Fecha y hora en español ("25 jun 2026, 02:30 p.m."). Para sellos que devuelve
+// el backend como datetime, p. ej. last_tested_at de una cuenta de cobro.
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 // Fecha corta día/mes en español ("2026-06-25" → "25 jun").
 export function formatDayMonth(iso: string | null | undefined): string {
   if (!iso) return '—';

@@ -52,6 +52,9 @@ const PAYMENT: Record<PaymentMethod, string> = {
   bank_transfer: 'Transferencia',
   cash: 'Efectivo',
   ath_movil: 'ATH Móvil',
+  // Lo pone el backend cuando un descuento del 100% (p. ej. beca) deja la
+  // transacción sin nada que cobrar. El motivo va en el descuento, no aquí.
+  waived: 'Sin cobro',
   other: 'Otro',
 };
 

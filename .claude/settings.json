@@ -29,7 +29,8 @@
       "Bash(python -c \"import json;d=json.load\\(open\\('openapi.json'\\)\\);[print\\(p\\) for p in sorted\\(d['paths']\\)]\")",
       "Bash(py -c \"import json;d=json.load\\(open\\('openapi.json'\\)\\);[print\\(p\\) for p in sorted\\(d['paths']\\)]\")",
       "Bash(python -)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(npx eslint *)"
     ]
   }
 }

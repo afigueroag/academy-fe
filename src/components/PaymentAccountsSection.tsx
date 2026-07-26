@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import SidePanel from './SidePanel';
 import ConfirmModal from './ConfirmModal';
 import PaymentAccountForm from './PaymentAccountForm';
+import PaymentAccountTestPanel from './PaymentAccountTestPanel';
 import {
   ApiError,
   createPaymentAccount,
@@ -17,10 +18,15 @@ import type {
   PaymentProvider,
 } from '../types';
 import { PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../brand';
+import { formatDateTime } from '../utils/finance';
 
+// Los paneles guardan el id, no la cuenta: así el panel se re-renderiza con los
+// datos frescos cuando la lista se recarga (p. ej. tras una prueba completada,
+// que actualiza last_tested_at).
 type PanelState =
   | { kind: 'create' }
-  | { kind: 'edit'; account: PaymentAccountRead }
+  | { kind: 'edit'; id: number }
+  | { kind: 'test'; id: number }
   | null;
 
 const PROVIDER_LABELS: Record<PaymentProvider, string> = {
@@ -81,6 +87,17 @@ export default function PaymentAccountsSection({
     }
   }, []);
 
+  // Recarga silenciosa tras una prueba completada: sin estado de carga y sin
+  // vaciar la lista si falla, porque el panel abierto sale de `accounts` y se
+  // cerraría solo en medio de la pantalla de éxito.
+  const refreshList = useCallback(async () => {
+    try {
+      setAccounts(await listPaymentAccounts());
+    } catch {
+      // El badge de verificación se pondrá al día al reabrir la sección.
+    }
+  }, []);
+
   useEffect(() => {
     fetchList();
   }, [fetchList]);
@@ -107,8 +124,15 @@ export default function PaymentAccountsSection({
   const openEdit = (account: PaymentAccountRead) => {
     setPanelError(null);
     setPanelApiError(null);
-    setPanel({ kind: 'edit', account });
+    setPanel({ kind: 'edit', id: account.id });
   };
+
+  // Cuenta viva del panel abierto; si desaparece de la lista (borrada), el
+  // panel se cierra solo al no tener nada que renderizar.
+  const panelAccount =
+    panel && panel.kind !== 'create'
+      ? (accounts.find((a) => a.id === panel.id) ?? null)
+      : null;
 
   const handleCreate = async (payload: PaymentAccountCreate) => {
     setSubmitting(true);
@@ -223,6 +247,7 @@ export default function PaymentAccountsSection({
                 <th>Proveedor</th>
                 <th>Entorno</th>
                 <th>Public token</th>
+                <th>Verificación</th>
                 <th>Predeterminada</th>
                 <th>Estado</th>
                 <th className="table-cell--nowrap" style={{ textAlign: 'right' }}>
@@ -247,6 +272,23 @@ export default function PaymentAccountsSection({
                   <td className="table-cell--nowrap">
                     {a.public_token_masked ?? (
                       <span className="table-cell--muted">—</span>
+                    )}
+                  </td>
+                  <td className="table-cell--nowrap">
+                    {a.last_tested_at ? (
+                      <>
+                        <span className="badge badge--active">Verificada</span>
+                        <div className="table-cell--muted">
+                          {formatDateTime(a.last_tested_at)}
+                        </div>
+                      </>
+                    ) : a.last_test_status === 'open' ||
+                      a.last_test_status === 'confirm' ? (
+                      <span className="badge badge--pending">En prueba</span>
+                    ) : (
+                      <span className="badge badge--inactive">
+                        Sin verificar
+                      </span>
                     )}
                   </td>
                   <td>
@@ -313,27 +355,40 @@ export default function PaymentAccountsSection({
       </SidePanel>
 
       <SidePanel
-        open={panel?.kind === 'edit'}
-        title="Editar cuenta de cobro"
+        open={!!panelAccount}
+        title={
+          panel?.kind === 'test'
+            ? 'Probar cuenta de cobro'
+            : 'Editar cuenta de cobro'
+        }
         subtitle={
-          panel?.kind === 'edit'
-            ? panel.account.display_name ??
-              PROVIDER_LABELS[panel.account.provider]
+          panelAccount
+            ? (panelAccount.display_name ??
+              PROVIDER_LABELS[panelAccount.provider])
             : undefined
         }
         onClose={closePanel}
       >
-        {panel?.kind === 'edit' && (
+        {panelAccount && panel?.kind === 'edit' && (
           <PaymentAccountForm
             mode="edit"
-            account={panel.account}
+            account={panelAccount}
             onSubmit={(payload) =>
-              handleEdit(panel.account.id, payload as PaymentAccountUpdate)
+              handleEdit(panelAccount.id, payload as PaymentAccountUpdate)
             }
             onCancel={closePanel}
             submitting={submitting}
             serverError={panelError}
             apiError={panelApiError}
+            onTest={() => setPanel({ kind: 'test', id: panelAccount.id })}
+          />
+        )}
+        {panelAccount && panel?.kind === 'test' && (
+          <PaymentAccountTestPanel
+            account={panelAccount}
+            onCompleted={refreshList}
+            onBack={() => setPanel({ kind: 'edit', id: panelAccount.id })}
+            onClose={() => setPanel(null)}
           />
         )}
       </SidePanel>
