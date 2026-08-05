@@ -415,7 +415,8 @@ export interface InviteToken {
 }
 
 export interface ListUsersParams {
-  role: UserRole;
+  // Sin rol: devuelve personas de todos los roles.
+  role?: UserRole;
   status?: UserStatus | 'all';
   search?: string;
   debt_filter?: Debt;

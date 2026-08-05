@@ -14,6 +14,10 @@ const ENVIRONMENT_OPTIONS: { value: PaymentEnvironment; label: string }[] = [
   { value: 'production', label: 'Producción' },
 ];
 
+// El public token de ATH Móvil es alfanumérico: se descarta cualquier otro
+// caracter al escribir o pegar.
+const TOKEN_INVALID_CHARS = /[^a-zA-Z0-9]/g;
+
 interface PaymentAccountFormProps {
   mode: 'create' | 'edit';
   account?: PaymentAccountRead;
@@ -41,6 +45,7 @@ export default function PaymentAccountForm({
     account?.environment ?? 'sandbox',
   );
   const [publicToken, setPublicToken] = useState('');
+  const [tokenCleaned, setTokenCleaned] = useState(false);
   const [isDefault, setIsDefault] = useState(account?.is_default ?? false);
   const [isActive, setIsActive] = useState(account?.is_active ?? true);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -63,6 +68,15 @@ export default function PaymentAccountForm({
       isDefault !== account.is_default ||
       isActive !== account.is_active ||
       publicToken.trim() !== '');
+
+  const handleTokenChange = (raw: string) => {
+    const clean = raw.replace(TOKEN_INVALID_CHARS, '');
+    setPublicToken(clean);
+    // Haber quitado caracteres no invalida el campo: se avisa en el hint, no
+    // como error, y el valor resultante es utilizable tal cual.
+    setTokenCleaned(clean !== raw);
+    setErrors((prev) => ({ ...prev, public_token: '' }));
+  };
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -164,11 +178,17 @@ export default function PaymentAccountForm({
           id="pa-token"
           className="input"
           value={publicToken}
-          onChange={(e) => setPublicToken(e.target.value)}
+          onChange={(e) => handleTokenChange(e.target.value)}
           placeholder={tokenPlaceholder}
           autoComplete="off"
+          spellCheck={false}
           aria-invalid={!!errors.public_token}
         />
+        <span className="field__hint">
+          {tokenCleaned
+            ? 'Se quitaron los caracteres que no son letras ni números.'
+            : 'Solo letras y números.'}
+        </span>
         <span className="field__error">{errors.public_token ?? ''}</span>
       </div>
 

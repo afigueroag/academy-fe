@@ -1656,6 +1656,12 @@ button {
   cursor: pointer;
 }
 
+.autocomplete__item-role {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .autocomplete__item:hover,
 .autocomplete__item--active {
   background: color-mix(in srgb, var(--color-primary) 10%, white);

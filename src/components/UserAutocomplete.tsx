@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { UserRead, UserRole } from '../types';
 import { ApiError, listUsers } from '../api';
 import { SearchIcon, SpinnerIcon } from '../brand';
+import { labelUserRole } from '../utils/roles';
 
 interface UserAutocompleteProps {
-  role: UserRole;
+  // Sin rol: busca en todas las personas y muestra el rol de cada resultado.
+  role?: UserRole;
   excludeIds?: number[];
   onSelect: (user: { id: number; first_name: string; last_name: string }) => void;
   placeholder?: string;
@@ -143,6 +145,11 @@ export default function UserAutocomplete({
                 onClick={() => pick(u)}
               >
                 {u.first_name} {u.last_name}
+                {!role && u.role && (
+                  <span className="autocomplete__item-role">
+                    {labelUserRole(u.role)}
+                  </span>
+                )}
               </button>
             ))}
         </div>

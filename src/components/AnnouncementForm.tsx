@@ -536,11 +536,10 @@ export default function AnnouncementForm({
               <div className="field">
                 <div className="field__label">Personas específicas</div>
                 <UserAutocomplete
-                  role="student"
                   excludeIds={userIds}
                   onSelect={addUser}
-                  placeholder="Buscar alumno por nombre"
-                  ariaLabel="Buscar alumno"
+                  placeholder="Buscar persona por nombre"
+                  ariaLabel="Buscar persona"
                 />
                 {users.length > 0 && (
                   <div className="chip-list">

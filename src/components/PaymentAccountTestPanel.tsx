@@ -13,6 +13,9 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 const TEST_AMOUNT = 100; // cents
 const TEST_CURRENCY = 'USD';
 
+// El teléfono va sin formato al backend: exactamente 10 dígitos.
+const PHONE_LENGTH = 10;
+
 type Phase = 'checking' | 'form' | 'waiting' | 'done' | 'rejected' | 'timeout';
 
 interface PaymentAccountTestPanelProps {
@@ -33,6 +36,8 @@ export default function PaymentAccountTestPanel({
   const [phase, setPhase] = useState<Phase>('checking');
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  // Aviso informativo (no error) cuando se limpiaron caracteres del pegado.
+  const [phoneCleaned, setPhoneCleaned] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,17 +69,32 @@ export default function PaymentAccountTestPanel({
     };
   }, [account.id]);
 
+  // Se descarta todo lo que no sea dígito (al escribir y al pegar) y se corta a
+  // 10, así el campo nunca puede quedar en un estado inválido.
+  const handlePhoneChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, PHONE_LENGTH);
+    setPhone(digits);
+    // Que se hayan quitado caracteres no es un error: lo que importa es cómo
+    // quedó el campo. El largo se valida al enviar.
+    setPhoneCleaned(raw !== digits);
+    setPhoneError(null);
+  };
+
   const handleStart = async (e: FormEvent) => {
     e.preventDefault();
-    if (!phone.trim()) {
+    if (!phone) {
       setPhoneError('Requerido');
+      return;
+    }
+    if (phone.length !== PHONE_LENGTH) {
+      setPhoneError(`Debe tener ${PHONE_LENGTH} dígitos`);
       return;
     }
     setPhoneError(null);
     setSubmitting(true);
     setError(null);
     try {
-      await testPaymentAccount(account.id, { phone: phone.trim() });
+      await testPaymentAccount(account.id, { phone });
       setPhase('waiting');
     } catch (err) {
       // 400 trae el mensaje de ATH Móvil tal cual (token mal copiado, cuenta de
@@ -168,10 +188,10 @@ export default function PaymentAccountTestPanel({
         </div>
         <p>
           Se envió una solicitud de {formatMoney(TEST_AMOUNT, TEST_CURRENCY)}
-          {phone.trim() ? (
+          {phone ? (
             <>
               {' '}
-              al número <strong>{phone.trim()}</strong>
+              al número <strong>{phone}</strong>
             </>
           ) : (
             ' al teléfono de la prueba'
@@ -318,16 +338,19 @@ export default function PaymentAccountTestPanel({
           id="pa-test-phone"
           className="input"
           type="tel"
+          inputMode="numeric"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="(787) 000-0000"
+          onChange={(e) => handlePhoneChange(e.target.value)}
+          placeholder="7870000000"
           autoComplete="off"
           aria-invalid={!!phoneError}
           autoFocus
         />
         <span className="field__error">{phoneError ?? ''}</span>
         <span className="field__hint">
-          Debe ser un número con ATH Móvil activo; ahí llegará la solicitud.
+          {phoneCleaned && 'Se quitaron los caracteres que no son números. '}
+          {PHONE_LENGTH} dígitos, sin espacios ni guiones. Debe ser un número con
+          ATH Móvil activo; ahí llegará la solicitud.
         </span>
       </div>
 
@@ -340,7 +363,11 @@ export default function PaymentAccountTestPanel({
         >
           Cancelar
         </button>
-        <button type="submit" className="btn btn--primary" disabled={submitting}>
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={submitting || phone.length !== PHONE_LENGTH}
+        >
           {submitting && <SpinnerIcon />}
           Enviar cobro de prueba
         </button>

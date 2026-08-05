@@ -251,7 +251,7 @@ export async function updateMe(patch: UserUpdate): Promise<UserMe> {
 
 export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
   const q = new URLSearchParams();
-  q.set('role', params.role);
+  if (params.role) q.set('role', params.role);
   if (params.status && params.status !== 'all') q.set('status', params.status);
   if (params.search) q.set('search', params.search);
   if (params.debt_filter) q.set('debt_filter', params.debt_filter);
