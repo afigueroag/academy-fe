@@ -1,6 +1,6 @@
 import type { TransactionKind, TransactionRead } from '../types';
 import { TransactionStatusBadge } from './Badges';
-import { formatMoney } from '../utils/money';
+import { formatMoney, grossFromNet } from '../utils/money';
 import {
   labelPaymentMethod,
   labelTransactionCategory,
@@ -52,6 +52,12 @@ export default function TransactionDetails({
   kind = 'sale',
 }: Props) {
   const isExpense = kind === 'expense';
+  // El backend solo devuelve el neto; el bruto se reconstruye desde el descuento.
+  const grossAmount = grossFromNet(
+    transaction.amount,
+    transaction.discount_amount,
+    transaction.discount_percentage,
+  );
   const hasDiscount =
     transaction.discount_amount != null ||
     transaction.discount_percentage != null;
@@ -76,7 +82,7 @@ export default function TransactionDetails({
       />
       <Item label="Categoría" value={labelTransactionCategory(transaction.category)} />
       <Item label="Descripción" value={transaction.description} />
-      <Item label="Monto bruto" value={formatMoney(transaction.gross_amount, currency)} />
+      <Item label="Monto bruto" value={formatMoney(grossAmount, currency)} />
       {hasDiscount && (
         <Item label="Descuento" value={discountValue} />
       )}

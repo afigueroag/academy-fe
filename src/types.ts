@@ -197,9 +197,9 @@ export interface UserMe {
 
 export interface UserRead {
   id: number;
-  // Rol real del usuario. Pendiente en OpenAPI: el backend debe exponer `role`
-  // en UserRead para poder mostrar/predefinir el rol al editar (ver punto 1 del
-  // rol instructor_student). Nullable hasta que el backend lo agregue.
+  // Rol real del usuario. El backend ya lo expone, pero como opcional y
+  // nullable: hay que seguir tratándolo como ausente al mostrar/predefinir el
+  // rol al editar (ver punto 1 del rol instructor_student).
   role?: UserRole | null;
   first_name: string;
   last_name: string;
@@ -231,18 +231,35 @@ export interface UserRead {
   status: UserStatus;
   credentials: string | null;
   is_active: boolean;
+  // Última escritura de la ficha (ISO con zona). Mientras está archivada nadie
+  // la toca —el backend confirmó que ningún job escribe en `users` en lote—, así
+  // que sirve como fecha de borrado aproximada. Por eso no hay `deleted_at`.
+  updated_at: string | null;
+  // ¿Ya entra a la plataforma? (tiene correo **y** contraseña). Es de solo
+  // lectura y es la condición del botón de invitar: `!has_access` → se puede
+  // invitar. Ojo: no confundir con `status`, que es el estado del alumno EN LA
+  // ACADEMIA (puede estar `active` sin acceso porque lo dio de alta recepción).
+  has_access: boolean;
   academy: AcademyPublic;
   pending_transactions: TransactionUserRead[];
   debt_amount: number | null;
   next_due_date: string | null;
   next_due_amount: number | null;
   role_consecutive: number; // número de estudiante (BE ya lo expone)
+  // Año de ingreso derivado de `start_date` por el backend. Se usa como prefijo
+  // del número de estudiante en la tabla (p. ej. 2025-839).
+  entry_year: number | null;
   // Grupos a los que pertenece el alumno (puede pertenecer a varios, incluso de
   // la misma categoría). Ver GroupPublic.
   groups?: GroupPublic[] | null;
   // Montos activos de la tabla (cents); el BE ya los expone (nullable).
   tuition_amount: number | null; // costo mensualidad activa (cents)
   enrollment_fee_amount: number | null; // costo matrícula anual activa (cents)
+  // Mes (1-12) y modalidad de cobro de la matrícula anual **del alumno**, no de
+  // la academia. Es la fuente de la línea "Cobro en {mes}" de la tabla y la
+  // misma que usa el filtro `enrollment_fee_month` de GET /users.
+  enrollment_fee_month: number | null;
+  enrollment_fee_mode: EnrollmentFeeMode | null;
 }
 
 // ---------- Grupos ----------
@@ -349,6 +366,10 @@ export interface UserCreate {
   groups?: GroupPublic[];
 }
 
+// Alta + invitación en un paso (POST /users/invite), para quien todavía no
+// existe. Si el correo ya pertenece a alguien, el backend NO crea un duplicado:
+// resuelve al usuario existente y le reenvía la invitación (201), o responde 409
+// si esa persona ya completó su registro.
 export interface UserInvite {
   first_name: string;
   last_name: string;
@@ -356,14 +377,24 @@ export interface UserInvite {
   role: UserRole;
 }
 
+// Invitar a un usuario que ya existe (POST /users/{id}/invite). El cuerpo entero
+// es opcional: con `email` se guarda el correo en la ficha y se invita (sirve
+// también para corregir uno mal escrito); sin cuerpo se reenvía al que ya tiene.
+export interface UserInviteExisting {
+  email?: string | null;
+}
+
 export interface UserUpdate {
   first_name: string;
   last_name: string;
-  // Cambiar el rol al editar (student/instructor ↔ instructor_student).
-  // Pendiente en OpenAPI: el backend debe aceptar `role` en UserUpdate y manejar
-  // los efectos (links de instructor, cobros de estudiante). Opcional: si no se
-  // envía, el rol no cambia.
+  // Cambiar el rol al editar (student/instructor ↔ instructor_student). El
+  // backend ya lo acepta. Opcional: si no se envía, el rol no cambia.
   role?: UserRole;
+  // Correo editable desde la ficha. No manda ningún correo ni cambia `status`
+  // (para eso está POST /users/{id}/invite). Omitir la clave = no se toca.
+  // `null` vacía el correo, pero el backend responde 422 si el usuario ya inicia
+  // sesión (`has_access`): le quitaría el acceso. Nunca mandar cadena vacía.
+  email?: string | null;
   phone: string | null;
   address: string | null;
   date_of_birth: string | null;
@@ -412,6 +443,36 @@ export interface PasswordChange {
 export interface InviteToken {
   invite_token: string;
   token_type: string;
+}
+
+// ---------- Conflictos de usuario (409) ----------
+// Los endpoints de alta, edición e invitación devuelven `detail` como objeto
+// `{ code, message, user? }` en vez de texto libre. `code` es lo que se mira
+// para decidir; `message` viene en español y listo para mostrar.
+
+export type UserConflictCode =
+  // El correo ya pertenece a otro usuario.
+  | 'email_taken'
+  // Esa persona ya completó su registro y entra a la plataforma.
+  | 'already_registered'
+  // La ficha está archivada: hay que reactivarla ANTES de invitar, o se crea
+  // una cuenta muerta (el backend bloquea el login de los archivados).
+  | 'user_deleted'
+  // Restore sobre una ficha que ya estaba activa: la pantalla iba atrasada.
+  | 'user_not_deleted'
+  // Invitar a alguien sin correo y sin mandar uno. Ojo: llega con 422, no 409.
+  | 'email_required';
+
+// Datos del usuario en conflicto. **Solo viene si es de la misma academia**: si
+// el correo lo tiene otra academia el backend omite la clave, así que la
+// ausencia de `user` es justo la señal de "no es de aquí, no ofrezcas nada".
+export interface UserConflict {
+  id: number;
+  first_name: string;
+  last_name: string;
+  role: UserRole | null;
+  is_active: boolean;
+  updated_at: string | null;
 }
 
 export interface ListUsersParams {
@@ -471,7 +532,10 @@ export interface TransactionCreate {
 
 export type TransactionUpdate = TransactionCreate;
 
-export interface TransactionRead extends TransactionCreate {
+// Ojo: el backend NO devuelve `gross_amount` en las lecturas (ver TransactionRead
+// en openapi.json), solo el neto en `amount`. Para mostrar o precargar el bruto
+// hay que reconstruirlo con `grossFromNet` de utils/money.
+export interface TransactionRead extends Omit<TransactionCreate, 'gross_amount'> {
   // Monto neto (cents) calculado por el backend a partir de gross_amount y el
   // descuento. Read-only: no se envía en create/update.
   amount: number;

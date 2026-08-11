@@ -58,7 +58,7 @@ export default function InviteResult({
       >
         <CheckIcon size={16} />
         <span>
-          Invitación generada para <strong>{firstName} {lastName}</strong>.
+          Invitación enviada a <strong>{firstName} {lastName}</strong> ({email}).
         </span>
       </div>
 
@@ -69,8 +69,9 @@ export default function InviteResult({
           margin: '0 0 16px',
         }}
       >
-        Copia el enlace y compártelo con la persona invitada por el medio que
-        prefieras. Es de un solo uso y expira tras ser canjeado.
+        Ya le llegó el enlace por correo. Si prefieres pasárselo a mano (WhatsApp,
+        en persona), cópialo de aquí. Vence en 7 días y deja de servir en cuanto
+        fije su contraseña.
       </p>
 
       <div className="field">

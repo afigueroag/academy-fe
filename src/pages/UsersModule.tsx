@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { StatusBadge } from '../components/Badges';
 import UserForm, { type StudentBillingSetup } from '../components/UserForm';
 import InviteForm from '../components/InviteForm';
+import InviteAccessForm from '../components/InviteAccessForm';
 import InviteResult from '../components/InviteResult';
 import UserDetails from '../components/UserDetails';
 import RegisterPaymentForm from '../components/RegisterPaymentForm';
@@ -21,6 +22,7 @@ import {
   getFinancePayroll,
   getToken,
   getTransactionsSummary,
+  inviteExistingUser,
   inviteUser,
   listUsers,
   suggestDebtReminder,
@@ -49,6 +51,7 @@ import type {
 import {
   CheckIcon,
   EyeIcon,
+  KeyIcon,
   MailIcon,
   PencilIcon,
   PlusIcon,
@@ -57,6 +60,7 @@ import {
   TrashIcon,
 } from '../brand';
 import { formatMoney } from '../utils/money';
+import { emailTakenMessage } from '../utils/invites';
 import KpiCard from '../components/charts/KpiCard';
 
 interface UsersModuleProps {
@@ -81,6 +85,9 @@ type Filter = UserStatus | 'all';
 
 type PanelState =
   | { kind: 'invite' }
+  // Invitar a alguien que ya existe en la academia (con o sin correo en su
+  // ficha). Distinto de 'invite', que además crea al usuario.
+  | { kind: 'invite-existing'; user: UserRead }
   | { kind: 'create' }
   | { kind: 'edit'; user: UserRead }
   | { kind: 'view'; user: UserRead }
@@ -111,6 +118,32 @@ const MONTHS_ES = [
   'Diciembre',
 ];
 
+/**
+ * Leyenda del mes de cobro de la matrícula anual **del estudiante** (campos de
+ * `UserRead`, no de la academia: esa solo decide si los cargos recurrentes se
+ * crean en automático). `null` → no se muestra segunda línea.
+ */
+function enrollmentFeeNoteFor(u: UserRead): string | null {
+  if (u.enrollment_fee_mode === 'one_time_on_signup')
+    return 'Pago único al inscribir';
+  if (u.enrollment_fee_mode === 'none') return null;
+  const m = u.enrollment_fee_month;
+  if (m == null || m < 1 || m > 12) return null;
+  return `Cobro en ${MONTHS_ES[m - 1].toLowerCase()}`;
+}
+
+/**
+ * Texto de la acción de invitar. `has_access` decide si se muestra; el texto
+ * sale de si ya se le mandó algo antes (`status === 'pending'` con correo) y de
+ * si hay correo al que mandarlo.
+ */
+function inviteRowLabel(u: UserRead): string {
+  if (!u.email) return 'Agregar correo e invitar';
+  return u.status === 'pending'
+    ? 'Reenviar invitación'
+    : 'Invitar a la plataforma';
+}
+
 const DEBT_OPTIONS: { value: Debt | ''; label: string }[] = [
   { value: '', label: 'Todos los cobros' },
   { value: 'none', label: 'Al corriente' },
@@ -132,6 +165,23 @@ function formatDateShort(value: string | null): string {
     month: 'short',
     year: '2-digit',
   });
+}
+
+/**
+ * Número de estudiante con el año de ingreso como prefijo (p. ej. "2025-839").
+ * Usa `entry_year` del backend y, si viene vacío, lo deriva de `start_date`.
+ * Sin año disponible se muestra solo el consecutivo.
+ */
+function studentNumber(u: UserRead): string | null {
+  if (u.role_consecutive == null) return null;
+  const year = u.entry_year ?? yearOf(u.start_date);
+  return year ? `${year}-${u.role_consecutive}` : String(u.role_consecutive);
+}
+
+function yearOf(value: string | null): number | null {
+  if (!value) return null;
+  const year = Number(value.slice(0, 4));
+  return Number.isFinite(year) && year > 0 ? year : null;
 }
 
 const DEFAULT_GRACE_DAYS = 7;
@@ -163,9 +213,8 @@ function pendingToTransactionRead(
     status: t.status,
     description: t.description,
     transaction_date: t.transaction_date,
-    // TransactionUserRead solo expone el neto. Para registrar el pago se usa
-    // como bruto sin descuento adicional: el neto cargado no cambia.
-    gross_amount: t.amount,
+    // TransactionUserRead solo expone el neto, igual que TransactionRead. Sin
+    // descuento el bruto coincide con él, así que el neto cargado no cambia.
     amount: t.amount,
     user_id: user.id,
     external_name: null,
@@ -364,6 +413,12 @@ export default function UsersModule(props: UsersModuleProps) {
     setInviteResult(null);
     setPanel({ kind: 'invite' });
   };
+  const openInviteExisting = (user: UserRead) => {
+    setPanelError(null);
+    setPanelApiError(null);
+    setInviteResult(null);
+    setPanel({ kind: 'invite-existing', user });
+  };
   const openCreate = () => {
     setPanelError(null);
     setPanelApiError(null);
@@ -446,6 +501,39 @@ export default function UsersModule(props: UsersModuleProps) {
         setPanelError(err.message);
       } else {
         setPanelError('No se pudo generar la invitación.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleInviteExisting = async (
+    user: UserRead,
+    email: string | null,
+  ) => {
+    setSubmitting(true);
+    setPanelError(null);
+    setPanelApiError(null);
+    try {
+      const result = await inviteExistingUser(user.id, email);
+      const link = `${window.location.origin}/invite?token=${encodeURIComponent(
+        result.invite_token,
+      )}`;
+      setInviteResult({
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: email ?? user.email ?? '',
+        link,
+      });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setPanelApiError(err);
+        // 409 "ya completó su registro": la pantalla estaba desactualizada, así
+        // que se recarga para que desaparezca el botón de invitar.
+        if (err.status === 409 && !emailTakenMessage(err)) fetchList();
+        setPanelError(err.message);
+      } else {
+        setPanelError('No se pudo enviar la invitación.');
       }
     } finally {
       setSubmitting(false);
@@ -875,7 +963,7 @@ export default function UsersModule(props: UsersModuleProps) {
                 <tr>
                   <th>{showDebtColumns ? 'Estudiante' : 'Nombre completo'}</th>
                   {showDebtColumns && (
-                    <th className="table-cell--nowrap">N.º</th>
+                    <th className="table-cell--nowrap">Año / N.º</th>
                   )}
                   {showDebtColumns && <th>Grupo</th>}
                   {!showDebtColumns && <th>Email</th>}
@@ -923,6 +1011,7 @@ export default function UsersModule(props: UsersModuleProps) {
                   const hasPending =
                     (u.pending_transactions?.length ?? 0) > 0;
                   const payLabel = hasDebt ? 'Pagar' : 'Pagar próximo';
+                  const enrollmentNote = enrollmentFeeNoteFor(u);
                   return (
                     <tr key={u.id}>
                       <td>
@@ -940,7 +1029,7 @@ export default function UsersModule(props: UsersModuleProps) {
                       </td>
                       {showDebtColumns && (
                         <td className="table-cell--nowrap">
-                          {u.role_consecutive ?? (
+                          {studentNumber(u) ?? (
                             <span className="table-cell--muted">—</span>
                           )}
                         </td>
@@ -972,10 +1061,24 @@ export default function UsersModule(props: UsersModuleProps) {
                           className="table-cell--nowrap"
                           style={{ textAlign: 'right' }}
                         >
-                          {u.enrollment_fee_amount != null ? (
-                            formatMoney(u.enrollment_fee_amount, currency)
-                          ) : (
+                          {u.enrollment_fee_amount == null &&
+                          enrollmentNote === null ? (
                             <span className="table-cell--muted">—</span>
+                          ) : (
+                            <>
+                              <div className="table-cell-stacked__primary">
+                                {u.enrollment_fee_amount != null ? (
+                                  formatMoney(u.enrollment_fee_amount, currency)
+                                ) : (
+                                  <span className="table-cell--muted">—</span>
+                                )}
+                              </div>
+                              {enrollmentNote && (
+                                <div className="table-cell-stacked__secondary">
+                                  {enrollmentNote}
+                                </div>
+                              )}
+                            </>
                           )}
                         </td>
                       )}
@@ -1039,6 +1142,17 @@ export default function UsersModule(props: UsersModuleProps) {
                               <MailIcon size={14} />
                             </button>
                           )}
+                          {!u.has_access && (
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => openInviteExisting(u)}
+                              title={inviteRowLabel(u)}
+                              aria-label={inviteRowLabel(u)}
+                            >
+                              <KeyIcon size={14} />
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="icon-btn"
@@ -1095,6 +1209,39 @@ export default function UsersModule(props: UsersModuleProps) {
             <InviteForm
               role={role}
               onSubmit={handleInvite}
+              onCancel={closePanel}
+              submitting={submitting}
+              serverError={panelError}
+              apiError={panelApiError}
+            />
+          ))}
+      </SidePanel>
+
+      <SidePanel
+        open={panel?.kind === 'invite-existing'}
+        title={
+          inviteResult ? 'Invitación enviada' : 'Invitar a la plataforma'
+        }
+        subtitle={
+          panel?.kind === 'invite-existing'
+            ? `${panel.user.first_name} ${panel.user.last_name}`
+            : undefined
+        }
+        onClose={closePanel}
+      >
+        {panel?.kind === 'invite-existing' &&
+          (inviteResult ? (
+            <InviteResult
+              firstName={inviteResult.firstName}
+              lastName={inviteResult.lastName}
+              email={inviteResult.email}
+              link={inviteResult.link}
+              onDone={closePanel}
+            />
+          ) : (
+            <InviteAccessForm
+              user={panel.user}
+              onSubmit={(email) => handleInviteExisting(panel.user, email)}
               onCancel={closePanel}
               submitting={submitting}
               serverError={panelError}
@@ -1194,6 +1341,9 @@ export default function UsersModule(props: UsersModuleProps) {
               panel.kind === 'view' && openRecCreate(panel.user, category)
             }
             onRefresh={fetchList}
+            onInvite={() =>
+              panel.kind === 'view' && openInviteExisting(panel.user)
+            }
           />
         )}
       </SidePanel>

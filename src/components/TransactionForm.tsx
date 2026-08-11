@@ -12,7 +12,7 @@ import { ApiError } from '../api';
 import { useAuth } from '../auth';
 import { SpinnerIcon, WalletIcon } from '../brand';
 import UserAutocomplete from './UserAutocomplete';
-import { formatMoney, fromCents, toCents } from '../utils/money';
+import { formatMoney, fromCents, grossFromNet, toCents } from '../utils/money';
 import {
   categoriesForKind,
   labelPaymentMethod,
@@ -25,6 +25,13 @@ const STATUS_OPTIONS: TransactionStatus[] = [
   'scheduled',
   'pending',
   'paid',
+];
+
+// "Cancelada" solo se ofrece al editar: no tiene sentido dar de alta una
+// transacción ya cancelada.
+const STATUS_OPTIONS_EDIT: TransactionStatus[] = [
+  ...STATUS_OPTIONS,
+  'cancelled',
 ];
 
 type DiscountKind = 'none' | 'fixed' | 'percentage';
@@ -106,8 +113,11 @@ function fromTransaction(tx: TransactionRead): FormState {
     external_name: tx.external_name ?? '',
     category: tx.category,
     description: tx.description,
-    gross_amount:
-      tx.gross_amount !== null ? String(fromCents(tx.gross_amount) ?? '') : '',
+    gross_amount: String(
+      fromCents(
+        grossFromNet(tx.amount, tx.discount_amount, tx.discount_percentage),
+      ) ?? '',
+    ),
     discount_kind,
     discount_value,
     discount_description: tx.discount_description ?? '',
@@ -201,7 +211,6 @@ export default function TransactionForm(props: TransactionFormProps) {
     }
   }, [apiError]);
 
-  const readonly = mode === 'edit' && props.transaction.status === 'paid';
   // Solo el backend setea discount_id (transacción generada desde un descuento
   // recurrente del estudiante). Si viene poblado lo mostramos para trazabilidad.
   const inheritedDiscountId =
@@ -358,7 +367,6 @@ export default function TransactionForm(props: TransactionFormProps) {
                 : '')
             }
             onClick={() => set('client_type', 'registered')}
-            disabled={readonly}
           >
             {isExpense ? 'Usuario registrado' : 'Cliente registrado'}
           </button>
@@ -373,7 +381,6 @@ export default function TransactionForm(props: TransactionFormProps) {
                 : '')
             }
             onClick={() => set('client_type', 'external')}
-            disabled={readonly}
           >
             {isExpense ? 'Externo' : 'Cliente externo'}
           </button>
@@ -383,19 +390,17 @@ export default function TransactionForm(props: TransactionFormProps) {
           state.user_id && state.user_label ? (
             <div className="autocomplete-chip">
               <span>{state.user_label}</span>
-              {!readonly && (
-                <button
-                  type="button"
-                  className="autocomplete-chip__clear"
-                  onClick={() => {
-                    set('user_id', null);
-                    set('user_label', '');
-                  }}
-                  aria-label={isExpense ? 'Quitar usuario' : 'Quitar cliente'}
-                >
-                  ×
-                </button>
-              )}
+              <button
+                type="button"
+                className="autocomplete-chip__clear"
+                onClick={() => {
+                  set('user_id', null);
+                  set('user_label', '');
+                }}
+                aria-label={isExpense ? 'Quitar usuario' : 'Quitar cliente'}
+              >
+                ×
+              </button>
             </div>
           ) : (
             <UserAutocomplete
@@ -422,7 +427,6 @@ export default function TransactionForm(props: TransactionFormProps) {
                 : 'Nombre del cliente externo'
             }
             aria-invalid={!!errors.external_name}
-            disabled={readonly}
           />
         )}
         <span className="field__error">
@@ -443,7 +447,6 @@ export default function TransactionForm(props: TransactionFormProps) {
               set('category', e.target.value as TransactionCategory | '')
             }
             aria-invalid={!!errors.category}
-            disabled={readonly}
           >
             <option value="">— Selecciona —</option>
             {categories.map((c) => (
@@ -466,7 +469,6 @@ export default function TransactionForm(props: TransactionFormProps) {
             value={state.transaction_date}
             onChange={(e) => set('transaction_date', e.target.value)}
             aria-invalid={!!errors.transaction_date}
-            disabled={readonly}
           />
           <span className="field__error">{errors.transaction_date ?? ''}</span>
         </div>
@@ -502,7 +504,6 @@ export default function TransactionForm(props: TransactionFormProps) {
             onChange={(e) => set('gross_amount', e.target.value)}
             aria-invalid={!!errors.gross_amount}
             placeholder="0.00"
-            disabled={readonly}
           />
           <span className="field__error">{errors.gross_amount ?? ''}</span>
         </div>
@@ -515,11 +516,19 @@ export default function TransactionForm(props: TransactionFormProps) {
             id="tx-status"
             className="select"
             value={state.status}
-            onChange={(e) => set('status', e.target.value as TransactionStatus)}
+            onChange={(e) => {
+              const next = e.target.value as TransactionStatus;
+              // Al revertir una transacción pagada se limpian los datos del
+              // cobro para no arrastrar un pago que ya no aplica.
+              if (state.status === 'paid' && next !== 'paid') {
+                set('paid_date', '');
+                set('payment_method', '');
+              }
+              set('status', next);
+            }}
             aria-invalid={!!errors.status}
-            disabled={readonly}
           >
-            {STATUS_OPTIONS.map((s) => (
+            {(mode === 'edit' ? STATUS_OPTIONS_EDIT : STATUS_OPTIONS).map((s) => (
               <option key={s} value={s}>
                 {labelTransactionStatus(s)}
               </option>
@@ -549,7 +558,6 @@ export default function TransactionForm(props: TransactionFormProps) {
               set('discount_kind', e.target.value as DiscountKind);
               set('discount_value', '');
             }}
-            disabled={readonly}
           >
             <option value="none">Sin descuento</option>
             <option value="fixed">Fijo</option>
@@ -577,7 +585,6 @@ export default function TransactionForm(props: TransactionFormProps) {
               onChange={(e) => set('discount_value', e.target.value)}
               aria-invalid={!!errors.discount_value}
               placeholder={state.discount_kind === 'fixed' ? '0.00' : '0'}
-              disabled={readonly}
             />
             <span className="field__error">{errors.discount_value ?? ''}</span>
           </div>
@@ -595,7 +602,6 @@ export default function TransactionForm(props: TransactionFormProps) {
             value={state.discount_description}
             onChange={(e) => set('discount_description', e.target.value)}
             placeholder="opcional"
-            disabled={readonly}
           />
           <span className="field__error" />
         </div>

@@ -73,8 +73,11 @@ import type {
   TransactionSummary,
   TransactionSummaryParams,
   TransactionUpdate,
+  UserConflict,
+  UserConflictCode,
   UserCreate,
   UserInvite,
+  UserInviteExisting,
   UserMe,
   UserPassword,
   UserPublic,
@@ -117,6 +120,12 @@ export class ApiError extends Error {
   status: number;
   fieldErrors: Record<string, string>;
   validation: ValidationError[];
+  // `code` del cuerpo estructurado (`email_taken`, `user_deleted`, …). Es lo que
+  // hay que mirar para ramificar: antes se distinguían los dos 409 del mismo
+  // endpoint con una regex sobre el mensaje. Null si el error no trae código.
+  code: UserConflictCode | string | null;
+  // Usuario en conflicto. Solo llega si es de la misma academia (ver UserConflict).
+  conflictUser: UserConflict | null;
 
   constructor(
     status: number,
@@ -126,6 +135,8 @@ export class ApiError extends Error {
     super(message);
     this.status = status;
     this.validation = validation;
+    this.code = null;
+    this.conflictUser = null;
     this.fieldErrors = {};
     for (const err of validation) {
       const field = err.loc[err.loc.length - 1];
@@ -144,23 +155,38 @@ async function parseError(res: Response): Promise<ApiError> {
     /* ignore */
   }
 
-  if (
-    res.status === 422 &&
-    body &&
-    typeof body === 'object' &&
-    'detail' in body
-  ) {
-    const v = body as HTTPValidationError;
-    const first = v.detail?.[0]?.msg ?? 'Datos inválidos';
-    return new ApiError(res.status, first, v.detail ?? []);
+  const detail =
+    body && typeof body === 'object' && 'detail' in body
+      ? (body as { detail: unknown }).detail
+      : null;
+
+  // Validación de FastAPI: `detail` es la lista de errores por campo. Se
+  // comprueba que sea array y no solo que el status sea 422, porque los errores
+  // de negocio (`email_required`) también llegan con 422 y cuerpo de objeto.
+  if (Array.isArray(detail)) {
+    const v = detail as HTTPValidationError['detail'];
+    return new ApiError(res.status, v[0]?.msg ?? 'Datos inválidos', v);
   }
 
-  if (body && typeof body === 'object' && 'detail' in body) {
-    const detail = (body as { detail: unknown }).detail;
-    if (typeof detail === 'string') {
-      return new ApiError(res.status, detail);
+  // Error de negocio con cuerpo estructurado: { code, message, user? }.
+  if (detail && typeof detail === 'object') {
+    const d = detail as {
+      code?: unknown;
+      message?: unknown;
+      user?: unknown;
+    };
+    const err = new ApiError(
+      res.status,
+      typeof d.message === 'string' ? d.message : `Error ${res.status}`,
+    );
+    if (typeof d.code === 'string') err.code = d.code;
+    if (d.user && typeof d.user === 'object') {
+      err.conflictUser = d.user as UserConflict;
     }
+    return err;
   }
+
+  if (typeof detail === 'string') return new ApiError(res.status, detail);
 
   return new ApiError(res.status, `Error ${res.status}`);
 }
@@ -194,7 +220,11 @@ async function authFetch(path: string, opts: AuthFetchOptions = {}): Promise<Res
     headers,
     body,
   });
-  if (res.status === 401) {
+  // Solo cuando la llamada usó el token de sesión. Con un token explícito (el de
+  // un enlace de invitación) un 401 significa "ese enlace expiró", no que la
+  // sesión guardada haya muerto: cerrarla ahí sacaría de la app a quien esté
+  // logueado y abra un enlace vencido.
+  if (res.status === 401 && !opts.token) {
     // Token expirado o inválido a mitad de sesión: cerrar sesión globalmente
     // para que las guardas de ruta redirijan a /login sin necesidad de refresh.
     clearToken();
@@ -327,8 +357,55 @@ export async function deleteUser(id: number): Promise<UserPublic> {
   return (await res.json()) as UserPublic;
 }
 
+/**
+ * Desarchiva una ficha borrada con DELETE (soft delete). **Solo admin.**
+ *
+ * La ficha vuelve siempre con `status: 'inactive'`, nunca al estado que tenía:
+ * reaparecer sola en los KPIs sería decidir por quien reactiva. Los cobros
+ * recurrentes **no** se reactivan (el dinero se reanuda a mano) y los cargos
+ * futuros cancelados en el borrado no vuelven; el historial, los documentos, los
+ * grupos y la deuda pendiente sí se conservan.
+ *
+ * Para devolverle además el acceso hay que invitar DESPUÉS de reactivar: el
+ * backend bloquea el login de las fichas archivadas y responde `user_deleted` si
+ * se invita antes.
+ *
+ * Errores: 403 no es admin · 404 no existe o es de otra academia (ojo: el resto
+ * de la API usa 403 para ese caso) · 409 `user_not_deleted` si ya estaba activa.
+ */
+export async function restoreUser(id: number): Promise<UserRead> {
+  const res = await authFetch(`/users/${id}/restore`, { method: 'POST' });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as UserRead;
+}
+
 export async function inviteUser(payload: UserInvite): Promise<InviteToken> {
   const res = await authFetch('/users/invite', { method: 'POST', body: payload });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as InviteToken;
+}
+
+/**
+ * Invita a un usuario que **ya existe** (POST /users/{id}/invite). Es el único
+ * camino para invitar a quien se dio de alta sin correo: se identifica por id y
+ * el correo va en el cuerpo.
+ *
+ * - Con `email`: lo guarda en la ficha y manda la invitación (también sirve para
+ *   corregir un correo mal escrito antes de reenviar).
+ * - Sin `email`: reenvía la invitación al correo que ya tenía. Se manda el POST
+ *   pelado, sin cuerpo, tal como acepta el backend.
+ *
+ * Errores relevantes: 409 correo ya registrado en otro usuario · 409 el usuario
+ * ya completó su registro · 422 no tiene correo y no se envió uno.
+ */
+export async function inviteExistingUser(
+  id: number,
+  email?: string | null,
+): Promise<InviteToken> {
+  const res = await authFetch(`/users/${id}/invite`, {
+    method: 'POST',
+    ...(email ? { body: { email } as UserInviteExisting } : {}),
+  });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as InviteToken;
 }
@@ -632,10 +709,11 @@ export async function updateTransaction(
   return (await res.json()) as TransactionRead;
 }
 
-export async function deleteTransaction(id: number): Promise<TransactionRead> {
+// Hard delete: el backend borra la transacción y responde 204 sin cuerpo.
+// 409 si tiene un pago en curso o ya cobrado.
+export async function deleteTransaction(id: number): Promise<void> {
   const res = await authFetch(`/transactions/${id}`, { method: 'DELETE' });
   if (!res.ok) throw await parseError(res);
-  return (await res.json()) as TransactionRead;
 }
 
 // ---------- Pagos (ATH Móvil) ----------

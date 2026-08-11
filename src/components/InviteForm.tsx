@@ -70,8 +70,20 @@ export default function InviteForm({
           marginBottom: 18,
         }}
       >
-        Generaremos un enlace de invitación que podrás copiar y compartir por
-        el medio que prefieras (correo, WhatsApp, etc.).
+        Se crea la ficha y le llega por correo un enlace para fijar su
+        contraseña. También podrás copiarlo para compartirlo por otro medio.
+      </p>
+
+      <p
+        style={{
+          color: 'var(--color-text-muted)',
+          fontSize: 14,
+          marginTop: -8,
+          marginBottom: 18,
+        }}
+      >
+        Si ese correo ya pertenece a alguien de la academia, no se duplica: se le
+        reenvía la invitación a esa persona.
       </p>
 
       <div className="field--row">

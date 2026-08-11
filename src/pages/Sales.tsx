@@ -259,8 +259,8 @@ export default function Sales() {
   const [panelError, setPanelError] = useState<string | null>(null);
   const [panelApiError, setPanelApiError] = useState<ApiError | null>(null);
 
-  const [toCancel, setToCancel] = useState<TransactionRead | null>(null);
-  const [cancelling, setCancelling] = useState(false);
+  const [toDelete, setToDelete] = useState<TransactionRead | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [toDeactivate, setToDeactivate] =
     useState<RecurringTransactionRead | null>(null);
   const [deactivating, setDeactivating] = useState(false);
@@ -522,22 +522,27 @@ export default function Sales() {
     }
   };
 
-  const confirmCancel = async () => {
-    if (!toCancel) return;
-    setCancelling(true);
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
     try {
-      await deleteTransaction(toCancel.id);
-      showToast('Transacción cancelada');
-      setToCancel(null);
+      await deleteTransaction(toDelete.id);
+      showToast('Transacción eliminada');
+      setToDelete(null);
       refreshAll();
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : 'No se pudo cancelar la transacción.';
+      let message = 'No se pudo eliminar la transacción.';
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          message =
+            'No se puede eliminar: la transacción ya fue cobrada o tiene un pago en curso.';
+        } else if (err.status === 404) {
+          message = 'La transacción ya no existe.';
+        }
+      }
       showToast(message);
     } finally {
-      setCancelling(false);
+      setDeleting(false);
     }
   };
 
@@ -886,12 +891,12 @@ export default function Sales() {
                           : t.external_name ?? '—';
                         const canPay =
                           t.status === 'pending' || t.status === 'scheduled';
-                        const canEdit =
-                          isAdmin && t.status !== 'cancelled';
-                        const canCancel =
-                          isAdmin &&
-                          t.status !== 'paid' &&
-                          t.status !== 'cancelled';
+                        // Editable en cualquier estado: permite corregir una
+                        // transacción marcada como pagada o cancelada por error.
+                        const canEdit = isAdmin;
+                        // También para las pagadas: si el backend tiene un pago
+                        // real asociado responde 409 y se avisa al usuario.
+                        const canDelete = isAdmin;
                         return (
                           <tr key={t.id}>
                             <td className="table-cell--nowrap">
@@ -964,10 +969,10 @@ export default function Sales() {
                                   <button
                                     type="button"
                                     className="icon-btn icon-btn--danger"
-                                    onClick={() => setToCancel(t)}
-                                    disabled={!canCancel}
-                                    title="Cancelar"
-                                    aria-label="Cancelar"
+                                    onClick={() => setToDelete(t)}
+                                    disabled={!canDelete}
+                                    title="Eliminar"
+                                    aria-label="Eliminar"
                                   >
                                     <TrashIcon size={14} />
                                   </button>
@@ -1348,14 +1353,14 @@ export default function Sales() {
       </SidePanel>
 
       <ConfirmModal
-        open={!!toCancel}
-        title="Cancelar transacción"
-        message="¿Cancelar esta transacción? Pasará a estado Cancelada."
-        confirmLabel="Cancelar transacción"
+        open={!!toDelete}
+        title="Eliminar transacción"
+        message="¿Eliminar esta transacción? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
         danger
-        loading={cancelling}
-        onConfirm={confirmCancel}
-        onCancel={() => !cancelling && setToCancel(null)}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setToDelete(null)}
       />
 
       <ConfirmModal

@@ -42,7 +42,13 @@ export default function Invite() {
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
-          setLoadError('El enlace expiró o ya fue utilizado.');
+          setLoadError(
+            'El enlace expiró o no es válido. Pídele a tu academia que te reenvíe la invitación.',
+          );
+        } else if (err instanceof ApiError && err.status === 403) {
+          setLoadError(
+            'Esta invitación ya fue utilizada. Inicia sesión con tu correo y contraseña.',
+          );
         } else {
           setLoadError('No se pudo cargar la invitación. Intenta de nuevo.');
         }
@@ -83,8 +89,10 @@ export default function Invite() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
+          // Mismo código para "no coincide el correo" y "el enlace ya venció";
+          // el correo es lo único que la persona puede corregir aquí.
           setServerError(
-            'El email no coincide con la invitación enviada.',
+            'El email no coincide con el de tu invitación. Escribe el correo al que te llegó el enlace.',
           );
         } else {
           setServerError(err.message);
@@ -143,7 +151,7 @@ export default function Invite() {
                 Hola, {invitee?.first_name}
               </h2>
               <p className="auth-card__subtitle">
-                Configura tu correo y contraseña para activar tu cuenta.
+                Confirma tu correo y elige una contraseña para activar tu cuenta.
               </p>
 
               {serverError && (
@@ -171,6 +179,9 @@ export default function Invite() {
                     }}
                     aria-invalid={!!errors.email}
                   />
+                  <span className="field__hint">
+                    El mismo al que te llegó este enlace.
+                  </span>
                   <span className="field__error">{errors.email ?? ''}</span>
                 </div>
 

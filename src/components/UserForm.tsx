@@ -15,6 +15,7 @@ import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
 import { hasStudentView, labelUserRole } from '../utils/roles';
+import { emailTakenMessage } from '../utils/invites';
 import UserDocumentsSection from './UserDocumentsSection';
 import StudentDiscountsSection from './StudentDiscountsSection';
 import StudentExtraFields, {
@@ -206,6 +207,12 @@ export default function UserForm(props: UserFormProps) {
     if (apiError?.fieldErrors) {
       setErrors((prev) => ({ ...prev, ...apiError.fieldErrors }));
     }
+    // Correo repetido (es único en todo el sistema, no por academia): se marca
+    // en el campo para corregirlo sin perder el resto del formulario.
+    const taken = emailTakenMessage(apiError);
+    if (taken) {
+      setErrors((prev) => ({ ...prev, email: taken }));
+    }
   }, [apiError]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
@@ -223,8 +230,14 @@ export default function UserForm(props: UserFormProps) {
     const next: Record<string, string> = {};
     if (!state.first_name.trim()) next.first_name = 'Requerido';
     if (!state.last_name.trim()) next.last_name = 'Requerido';
-    if (mode === 'create' && state.email.trim() && !EMAIL_RE.test(state.email)) {
+    const email = state.email.trim();
+    if (email && !EMAIL_RE.test(email)) {
       next.email = 'Email inválido';
+    }
+    // Vaciar el correo de quien ya inicia sesión le quitaría el acceso: el
+    // backend lo rechaza con 422, así que se corta aquí con un mensaje claro.
+    if (mode === 'edit' && !email && props.user.has_access) {
+      next.email = 'No se puede quitar el correo de alguien que ya entra a la plataforma';
     }
     if (isStudentCreate && createTuition) {
       const amt = parseFloat(tuitionAmount);
@@ -281,6 +294,12 @@ export default function UserForm(props: UserFormProps) {
         ...(selectedRole !== (props.user.role ?? props.role)
           ? { role: selectedRole }
           : {}),
+        // Solo se manda si cambió: omitir la clave deja el correo intacto, y así
+        // un PATCH normal nunca arriesga tocarlo. Vacío viaja como `null`, nunca
+        // como cadena vacía (el backend la rechaza).
+        ...(nullable(state.email) !== (props.user.email ?? null)
+          ? { email: nullable(state.email) }
+          : {}),
         phone: nullable(state.phone),
         address: nullable(state.address),
         date_of_birth: nullable(state.date_of_birth),
@@ -334,23 +353,26 @@ export default function UserForm(props: UserFormProps) {
         </div>
       </div>
 
-      {mode === 'create' && (
-        <div className="field">
-          <label className="field__label" htmlFor="uf-email">
-            Email
-          </label>
-          <input
-            id="uf-email"
-            className="input"
-            type="email"
-            value={state.email}
-            onChange={(e) => set('email', e.target.value)}
-            aria-invalid={!!errors.email}
-            placeholder="opcional"
-          />
-          <span className="field__error">{errors.email ?? ''}</span>
-        </div>
-      )}
+      <div className="field">
+        <label className="field__label" htmlFor="uf-email">
+          Email
+        </label>
+        <input
+          id="uf-email"
+          className="input"
+          type="email"
+          value={state.email}
+          onChange={(e) => set('email', e.target.value)}
+          aria-invalid={!!errors.email}
+          placeholder="opcional"
+        />
+        <span className="field__hint">
+          {mode === 'create'
+            ? 'Opcional. Se puede agregar después, cuando se le dé acceso a la plataforma.'
+            : 'Guardar aquí solo corrige el dato: no manda ningún correo. Para que entre a la plataforma usa "Invitar".'}
+        </span>
+        <span className="field__error">{errors.email ?? ''}</span>
+      </div>
 
       <div className="field--row">
         <div className="field">

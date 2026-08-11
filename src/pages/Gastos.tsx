@@ -255,8 +255,8 @@ export default function Gastos() {
   const [panelError, setPanelError] = useState<string | null>(null);
   const [panelApiError, setPanelApiError] = useState<ApiError | null>(null);
 
-  const [toCancel, setToCancel] = useState<TransactionRead | null>(null);
-  const [cancelling, setCancelling] = useState(false);
+  const [toDelete, setToDelete] = useState<TransactionRead | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [toDeactivate, setToDeactivate] =
     useState<RecurringTransactionRead | null>(null);
   const [deactivating, setDeactivating] = useState(false);
@@ -496,22 +496,27 @@ export default function Gastos() {
     }
   };
 
-  const confirmCancel = async () => {
-    if (!toCancel) return;
-    setCancelling(true);
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
     try {
-      await deleteTransaction(toCancel.id);
-      showToast('Gasto cancelado');
-      setToCancel(null);
+      await deleteTransaction(toDelete.id);
+      showToast('Gasto eliminado');
+      setToDelete(null);
       refreshAll();
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : 'No se pudo cancelar el gasto.';
+      let message = 'No se pudo eliminar el gasto.';
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          message =
+            'No se puede eliminar: el gasto ya fue pagado o tiene un pago en curso.';
+        } else if (err.status === 404) {
+          message = 'El gasto ya no existe.';
+        }
+      }
       showToast(message);
     } finally {
-      setCancelling(false);
+      setDeleting(false);
     }
   };
 
@@ -860,12 +865,12 @@ export default function Gastos() {
                           : t.external_name ?? '—';
                         const canPay =
                           t.status === 'pending' || t.status === 'scheduled';
-                        const canEdit =
-                          isAdmin && t.status !== 'cancelled';
-                        const canCancel =
-                          isAdmin &&
-                          t.status !== 'paid' &&
-                          t.status !== 'cancelled';
+                        // Editable en cualquier estado: permite corregir un
+                        // gasto marcado como pagado o cancelado por error.
+                        const canEdit = isAdmin;
+                        // También para los pagados: si el backend tiene un pago
+                        // real asociado responde 409 y se avisa al usuario.
+                        const canDelete = isAdmin;
                         return (
                           <tr key={t.id}>
                             <td className="table-cell--nowrap">
@@ -938,10 +943,10 @@ export default function Gastos() {
                                   <button
                                     type="button"
                                     className="icon-btn icon-btn--danger"
-                                    onClick={() => setToCancel(t)}
-                                    disabled={!canCancel}
-                                    title="Cancelar"
-                                    aria-label="Cancelar"
+                                    onClick={() => setToDelete(t)}
+                                    disabled={!canDelete}
+                                    title="Eliminar"
+                                    aria-label="Eliminar"
                                   >
                                     <TrashIcon size={14} />
                                   </button>
@@ -1306,14 +1311,14 @@ export default function Gastos() {
       </SidePanel>
 
       <ConfirmModal
-        open={!!toCancel}
-        title="Cancelar gasto"
-        message="¿Cancelar este gasto? Pasará a estado Cancelada."
-        confirmLabel="Cancelar gasto"
+        open={!!toDelete}
+        title="Eliminar gasto"
+        message="¿Eliminar este gasto? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
         danger
-        loading={cancelling}
-        onConfirm={confirmCancel}
-        onCancel={() => !cancelling && setToCancel(null)}
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setToDelete(null)}
       />
 
       <ConfirmModal

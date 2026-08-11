@@ -9,7 +9,14 @@ import type {
 } from '../types';
 import { StatusBadge, TransactionStatusBadge } from './Badges';
 import { GroupChips } from './GroupPicker';
-import { CheckIcon, PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from '../brand';
+import {
+  CheckIcon,
+  KeyIcon,
+  PencilIcon,
+  PlusIcon,
+  SpinnerIcon,
+  TrashIcon,
+} from '../brand';
 import ConfirmModal from './ConfirmModal';
 import InstructorPaySection from './InstructorPaySection';
 import StudentAttendanceSection from './StudentAttendanceSection';
@@ -92,6 +99,9 @@ interface UserDetailsProps {
   onPayPending?: (tx: TransactionUserRead) => void;
   onCreateRecurring?: (category: 'tuition' | 'enrollment_fee') => void;
   onRefresh?: () => void;
+  // Abre el panel de invitación. Solo se pasa a quien puede invitar (admin o
+  // recepción): sin handler, el bloque de acceso queda informativo.
+  onInvite?: () => void;
 }
 
 export default function UserDetails({
@@ -102,6 +112,7 @@ export default function UserDetails({
   onPayPending,
   onCreateRecurring,
   onRefresh,
+  onInvite,
 }: UserDetailsProps) {
   const isStudent = role === 'student';
   const isInstructor = role === 'instructor';
@@ -190,6 +201,42 @@ export default function UserDetails({
         />
         <Item label="Email" value={user.email} />
         <Item label="Estado" value={<StatusBadge status={user.status} />} />
+        {/* `status` es el estado en la academia; el acceso a la app es otra capa
+            (correo + contraseña) y por eso se muestra aparte. */}
+        <Item
+          label="Acceso a la plataforma"
+          full
+          value={
+            user.has_access ? (
+              'Entra con su correo y contraseña'
+            ) : (
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {user.status === 'pending' && user.email
+                  ? 'Invitación pendiente'
+                  : 'Sin acceso'}
+                {onInvite && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={onInvite}
+                  >
+                    <KeyIcon size={14} />
+                    {user.status === 'pending' && user.email
+                      ? 'Reenviar invitación'
+                      : 'Invitar'}
+                  </button>
+                )}
+              </span>
+            )
+          }
+        />
         <Item label="Teléfono" value={user.phone} />
         <Item
           label="Fecha de nacimiento"

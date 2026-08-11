@@ -164,6 +164,29 @@ export function MailIcon({ size = 16 }: IconProps) {
   );
 }
 
+// Acceso a la plataforma: invitar a alguien a fijar su contraseña. Se usa en vez
+// de MailIcon para no chocar con el recordatorio de deuda en la misma fila.
+export function KeyIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="8" cy="15" r="4" />
+      <path d="M10.85 12.15 L20 3" />
+      <path d="M17 6 L19.5 8.5" />
+      <path d="M14.5 8.5 L17 11" />
+    </svg>
+  );
+}
+
 export function SearchIcon({ size = 16 }: IconProps) {
   return (
     <svg

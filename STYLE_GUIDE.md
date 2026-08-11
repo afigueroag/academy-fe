@@ -63,7 +63,7 @@ Agregar un módulo al sidebar: editar `<nav className="sidebar__nav">` en [Layou
 
 ## Iconos disponibles
 
-Importar de `../brand`: `Logo, CheckIcon, ArrowRightIcon, ArrowLeftIcon, SpinnerIcon, PlusIcon, MailIcon, SearchIcon, CloseIcon, PencilIcon, EyeIcon, TrashIcon, UsersIcon, GraduationIcon, CopyIcon, LogoutIcon`. Todos aceptan `size` (default 16) y `color` (default `currentColor`). No instalar lucide ni heroicons.
+Importar de `../brand`: `Logo, CheckIcon, ArrowRightIcon, ArrowLeftIcon, SpinnerIcon, PlusIcon, MailIcon, KeyIcon, SearchIcon, CloseIcon, PencilIcon, EyeIcon, TrashIcon, UsersIcon, GraduationIcon, CopyIcon, LogoutIcon`. Todos aceptan `size` (default 16) y `color` (default `currentColor`). No instalar lucide ni heroicons.
 
 ## API y tipos
 

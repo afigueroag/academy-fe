@@ -7,7 +7,7 @@ import type {
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
 import { SpinnerIcon, WalletIcon } from '../brand';
-import { fromCents } from '../utils/money';
+import { formatMoney, grossFromNet } from '../utils/money';
 import {
   labelPaymentMethod,
   labelTransactionCategory,
@@ -80,7 +80,13 @@ export default function RegisterPaymentForm({
       description: transaction.description,
       transaction_date: transaction.transaction_date,
       // Registrar el pago no cambia los montos: se conservan bruto y descuento.
-      gross_amount: transaction.gross_amount,
+      // El bruto no viene en la lectura, se reconstruye desde el neto.
+      gross_amount:
+        grossFromNet(
+          transaction.amount,
+          transaction.discount_amount,
+          transaction.discount_percentage,
+        ) ?? transaction.amount,
       user_id: transaction.user_id,
       external_name: transaction.external_name,
       course_id: transaction.course_id,
@@ -99,10 +105,7 @@ export default function RegisterPaymentForm({
     await onSubmit(payload);
   };
 
-  const formatted = new Intl.NumberFormat(navigator.language, {
-    style: 'currency',
-    currency: currency ?? 'USD',
-  }).format((fromCents(transaction.amount) ?? 0));
+  const formatted = formatMoney(transaction.amount, currency);
 
   return (
     <form onSubmit={handleSubmit} noValidate>
