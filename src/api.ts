@@ -286,10 +286,13 @@ export async function updateMe(patch: UserUpdate): Promise<UserMe> {
  * responde 422. El total viene en el header `X-Total-Count` con los filtros
  * aplicados e ignorando `skip`/`limit`.
  *
- * Si el header no llega —el caso típico es que el backend no lo publique en
- * `Access-Control-Expose-Headers` y el navegador lo esconda— se cae al tamaño
- * de la página: el paginador queda inservible pero la lista se ve igual, en vez
- * de mostrar "0 resultados" sobre datos que sí llegaron.
+ * El backend lo publica en `Access-Control-Expose-Headers` (verificado con una
+ * petición cruzada real, y lo manda también en las respuestas de error porque el
+ * CORSMiddleware envuelve todo lo demás). Aun así el respaldo se queda puesto de
+ * forma permanente: cubre un proxy intermedio que filtre headers. Si no llega,
+ * el total cae al tamaño de la página —el paginador queda inservible pero la
+ * lista se ve igual— en vez de mostrar "0 resultados" sobre datos que sí
+ * llegaron.
  *
  * El listado viene ordenado por apellido, nombre e id, y devuelve `UserListRead`
  * (sin `academy` ni `pending_transactions`). **No reordenar en cliente**: solo
