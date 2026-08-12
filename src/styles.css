@@ -1262,8 +1262,44 @@ button {
   margin: 0 0 22px;
 }
 
+/* Modal que ofrece dos salidas en vez de confirmar una: necesita ancho para
+   las tres acciones (cancelar + las dos salidas) sin partirlas en dos filas. */
+.modal--wide {
+  max-width: 520px;
+}
+
+/* Explicación de cada salida dentro del cuerpo del modal. */
+.modal__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 22px;
+}
+
+.modal__choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal__choice p {
+  margin: 0;
+}
+
+.modal__choice-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.modal__choice-text {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
 .modal__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
 }
@@ -1276,6 +1312,37 @@ button {
 
 .btn--danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-danger) 88%, black);
+}
+
+/* ---------- Paginador ---------- */
+
+.paginator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.paginator__count {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.paginator__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paginator__page {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ---------- Success alert ---------- */
@@ -1384,6 +1451,27 @@ button {
   align-items: center;
   gap: 8px;
   font-weight: 600;
+}
+
+/* Aviso de correo repetido con salida (reactivar / ver ficha). Vive dentro de
+   `.alert--warning`, encima del formulario del panel. */
+.conflict-notice__text {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.conflict-notice__error {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.conflict-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* ---------- Course / Enrollment badges ---------- */

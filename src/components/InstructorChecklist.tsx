@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { InstructorType, UserRead } from '../types';
+import type { InstructorType, UserListRead } from '../types';
 import { ApiError, listUsers } from '../api';
 import { SpinnerIcon } from '../brand';
 import { formatMoney, fromCents } from '../utils/money';
@@ -47,7 +47,7 @@ export default function InstructorChecklist({
   defaultAssistantRate,
   currency,
 }: InstructorChecklistProps) {
-  const [instructors, setInstructors] = useState<UserRead[]>([]);
+  const [instructors, setInstructors] = useState<UserListRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -58,7 +58,9 @@ export default function InstructorChecklist({
     setError(null);
     listUsers({ role: 'instructor', status: 'active', limit: 200 })
       .then((data) => {
-        if (!cancelled) setInstructors(data);
+        // 200 es el tope del backend. Una academia con más instructores activos
+        // se quedaría corta aquí, pero hoy no hay ninguna cerca de ese número.
+        if (!cancelled) setInstructors(data.items);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -79,7 +81,7 @@ export default function InstructorChecklist({
 
   const findRow = (id: number) => value.find((r) => r.instructor_id === id);
 
-  const toggle = (instr: UserRead) => {
+  const toggle = (instr: UserListRead) => {
     if (findRow(instr.id)) {
       onChange(value.filter((r) => r.instructor_id !== instr.id));
     } else {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import type { UserRead } from '../types';
+import type { UserListRead } from '../types';
 import { ApiError } from '../api';
 import { SpinnerIcon } from '../brand';
 import { emailTakenMessage } from '../utils/invites';
@@ -7,7 +7,7 @@ import { emailTakenMessage } from '../utils/invites';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface InviteAccessFormProps {
-  user: UserRead;
+  user: UserListRead;
   /**
    * `email` es el correo a guardar en la ficha antes de invitar; `null` significa
    * reenviar al que el usuario ya tiene (POST sin cuerpo).

@@ -499,6 +499,26 @@ export function ClockIcon({ size = 16 }: IconProps) {
   );
 }
 
+// Flecha circular antihoraria: desarchivar una ficha eliminada.
+export function RestoreIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3.5 12 A8.5 8.5 0 1 1 6 18" />
+      <path d="M3 7 V12 H8" />
+    </svg>
+  );
+}
+
 export function WarningIcon({ size = 16 }: IconProps) {
   return (
     <svg

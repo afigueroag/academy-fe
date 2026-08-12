@@ -22,9 +22,11 @@ import {
   getFinancePayroll,
   getToken,
   getTransactionsSummary,
+  getUser,
   inviteExistingUser,
   inviteUser,
   listUsers,
+  restoreUser,
   suggestDebtReminder,
   updateRecurringTransaction,
   updateTransaction,
@@ -41,8 +43,10 @@ import type {
   TransactionRead,
   TransactionUpdate,
   TransactionUserRead,
+  UserConflict,
   UserCreate,
   UserInvite,
+  UserListRead,
   UserRead,
   UserRole,
   UserStatus,
@@ -55,12 +59,16 @@ import {
   MailIcon,
   PencilIcon,
   PlusIcon,
+  RestoreIcon,
   SearchIcon,
   SpinnerIcon,
   TrashIcon,
 } from '../brand';
 import { formatMoney } from '../utils/money';
-import { emailTakenMessage } from '../utils/invites';
+import { formatDateTimeShort } from '../utils/dates';
+import { conflictCode, conflictUser } from '../utils/invites';
+import ConflictNotice from '../components/ConflictNotice';
+import Paginator from '../components/Paginator';
 import KpiCard from '../components/charts/KpiCard';
 
 interface UsersModuleProps {
@@ -81,19 +89,26 @@ interface UsersModuleProps {
   onEnrollmentMonthFilterChange?: (m: number | null) => void;
 }
 
-type Filter = UserStatus | 'all';
+// 'deleted' no es un `status`: son las fichas archivadas por el borrado suave
+// (`is_active = false`), invisibles en los otros cuatro filtros —"Inactivos"
+// filtra por estado en la academia, no por borrado—. Se piden con `active=false`
+// y solo las ve un admin, que es quien puede reactivarlas.
+type Filter = UserStatus | 'all' | 'deleted';
 
+// Casi todos los paneles se abren desde una fila del listado, que es un
+// `UserListRead`. Solo 'view' exige la ficha entera: el detalle pinta los cobros
+// pendientes, que el listado ya no trae, así que se pide al abrirlo.
 type PanelState =
   | { kind: 'invite' }
   // Invitar a alguien que ya existe en la academia (con o sin correo en su
   // ficha). Distinto de 'invite', que además crea al usuario.
-  | { kind: 'invite-existing'; user: UserRead }
+  | { kind: 'invite-existing'; user: UserListRead }
   | { kind: 'create' }
-  | { kind: 'edit'; user: UserRead }
+  | { kind: 'edit'; user: UserListRead }
   | { kind: 'view'; user: UserRead }
-  | { kind: 'pay'; user: UserRead; tx: TransactionRead }
-  | { kind: 'rec-create'; user: UserRead; category: TransactionCategory }
-  | { kind: 'rec-edit'; user: UserRead; rec: RecurringTransactionRead }
+  | { kind: 'pay'; user: UserListRead; tx: TransactionRead }
+  | { kind: 'rec-create'; user: UserListRead; category: TransactionCategory }
+  | { kind: 'rec-edit'; user: UserListRead; rec: RecurringTransactionRead }
   | null;
 
 const FILTERS: { value: Filter; label: string }[] = [
@@ -102,6 +117,14 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'inactive', label: 'Inactivos' },
   { value: 'all', label: 'Todos' },
 ];
+
+const DELETED_FILTER: { value: Filter; label: string } = {
+  value: 'deleted',
+  label: 'Eliminados',
+};
+
+// Tamaño de página. El backend acepta de 1 a 200 y responde 422 por encima.
+const PAGE_SIZE = 100;
 
 const MONTHS_ES = [
   'Enero',
@@ -120,10 +143,10 @@ const MONTHS_ES = [
 
 /**
  * Leyenda del mes de cobro de la matrícula anual **del estudiante** (campos de
- * `UserRead`, no de la academia: esa solo decide si los cargos recurrentes se
+ * la fila del listado, no de la academia: esa solo decide si los cargos se
  * crean en automático). `null` → no se muestra segunda línea.
  */
-function enrollmentFeeNoteFor(u: UserRead): string | null {
+function enrollmentFeeNoteFor(u: UserListRead): string | null {
   if (u.enrollment_fee_mode === 'one_time_on_signup')
     return 'Pago único al inscribir';
   if (u.enrollment_fee_mode === 'none') return null;
@@ -137,7 +160,7 @@ function enrollmentFeeNoteFor(u: UserRead): string | null {
  * sale de si ya se le mandó algo antes (`status === 'pending'` con correo) y de
  * si hay correo al que mandarlo.
  */
-function inviteRowLabel(u: UserRead): string {
+function inviteRowLabel(u: UserListRead): string {
   if (!u.email) return 'Agregar correo e invitar';
   return u.status === 'pending'
     ? 'Reenviar invitación'
@@ -172,7 +195,7 @@ function formatDateShort(value: string | null): string {
  * Usa `entry_year` del backend y, si viene vacío, lo deriva de `start_date`.
  * Sin año disponible se muestra solo el consecutivo.
  */
-function studentNumber(u: UserRead): string | null {
+function studentNumber(u: UserListRead): string | null {
   if (u.role_consecutive == null) return null;
   const year = u.entry_year ?? yearOf(u.start_date);
   return year ? `${year}-${u.role_consecutive}` : String(u.role_consecutive);
@@ -204,7 +227,7 @@ function paymentWindow(
 
 function pendingToTransactionRead(
   t: TransactionUserRead,
-  user: UserRead,
+  user: UserListRead,
 ): TransactionRead {
   return {
     id: t.id,
@@ -234,6 +257,49 @@ function pendingToTransactionRead(
   };
 }
 
+/**
+ * Cambio de `status` sin pasar por el formulario. Es un PATCH parcial —el
+ * backend solo exige nombre y apellido— pero `UserUpdate` pide el bloque base,
+ * así que se reenvía tal cual lo que ya tiene la ficha. `email` y `role` se
+ * omiten a propósito: omitir la clave es la forma de no tocarlas.
+ */
+function statusPatch(u: UserListRead, status: UserStatus): UserUpdate {
+  return {
+    first_name: u.first_name,
+    last_name: u.last_name,
+    phone: u.phone,
+    address: u.address,
+    date_of_birth: u.date_of_birth,
+    start_date: u.start_date,
+    payment_method: u.payment_method,
+    special_conditions: u.special_conditions,
+    status,
+  };
+}
+
+/**
+ * Vuelca sobre la ficha recién reactivada lo que se acababa de teclear en el
+ * alta, para no perderlo. Solo pisan los valores con contenido: si el alta dejó
+ * un campo vacío y la ficha archivada lo tenía, gana el de la ficha. Los arrays
+ * vacíos también se descartan, o un alta sin grupos borraría los que ya tenía.
+ */
+function mergeAttempted(
+  user: UserRead,
+  attempted: Partial<UserCreate> | null,
+): UserRead {
+  if (!attempted) return user;
+  const filled = Object.fromEntries(
+    Object.entries(attempted).filter(
+      ([, v]) =>
+        v !== null &&
+        v !== undefined &&
+        v !== '' &&
+        !(Array.isArray(v) && v.length === 0),
+    ),
+  );
+  return { ...user, ...filled } as UserRead;
+}
+
 export default function UsersModule(props: UsersModuleProps) {
   const {
     role,
@@ -260,7 +326,11 @@ export default function UsersModule(props: UsersModuleProps) {
   const [status, setStatus] = useState<Filter>('active');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [users, setUsers] = useState<UserRead[]>([]);
+  const [users, setUsers] = useState<UserListRead[]>([]);
+  // Página actual (base 0) y total con los filtros aplicados. Sin paginar, el
+  // backend cortaba en 100 y el resto simplemente no aparecía.
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -283,6 +353,13 @@ export default function UsersModule(props: UsersModuleProps) {
   const [submitting, setSubmitting] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [panelApiError, setPanelApiError] = useState<ApiError | null>(null);
+  // Datos del alta que chocó contra un correo ya registrado. Se guardan para
+  // volcarlos sobre la ficha si se resuelve reactivando en vez de crear.
+  const [attempted, setAttempted] = useState<Partial<UserCreate> | null>(null);
+  const [resolvingConflict, setResolvingConflict] = useState(false);
+  // Fallo al intentar resolver el conflicto. Va aparte de `panelError` porque se
+  // pinta dentro del aviso, para no tapar el botón de reintentar.
+  const [conflictError, setConflictError] = useState<string | null>(null);
   const [inviteResult, setInviteResult] = useState<{
     firstName: string;
     lastName: string;
@@ -291,14 +368,29 @@ export default function UsersModule(props: UsersModuleProps) {
   } | null>(null);
 
   // Recordatorio de deuda por-estudiante (panel independiente de la máquina `panel`).
-  const [debtUser, setDebtUser] = useState<UserRead | null>(null);
+  const [debtUser, setDebtUser] = useState<UserListRead | null>(null);
   const [debtInitial, setDebtInitial] = useState<AnnouncementCreate | null>(null);
   const [debtError, setDebtError] = useState<string | null>(null);
   // Admin y recepción pueden mandar recordatorios de deuda.
   const canSendDebt = me?.role === 'admin' || me?.role === 'receptionist';
+  // Las fichas eliminadas solo las ve y reactiva un admin: el backend responde
+  // 403 a los demás, así que ni siquiera se ofrece la pestaña.
+  const isAdmin = me?.role === 'admin';
+  const filters = isAdmin ? [...FILTERS, DELETED_FILTER] : FILTERS;
+  const showingDeleted = status === 'deleted';
 
-  const [toDelete, setToDelete] = useState<UserRead | null>(null);
+  // Modal de baja: ofrece las dos salidas (marcar inactivo o archivar la ficha).
+  const [toDelete, setToDelete] = useState<UserListRead | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
+  // Reactivar desde la pestaña de eliminados (el otro camino es el aviso de
+  // correo repetido al dar de alta).
+  const [toRestore, setToRestore] = useState<UserListRead | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  // Fila cuya ficha se está pidiendo para abrir un panel (ver detalles, cobrar).
+  const [openingRow, setOpeningRow] = useState<number | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -320,12 +412,24 @@ export default function UsersModule(props: UsersModuleProps) {
     try {
       const data = await listUsers({
         role,
-        status,
+        // El filtro de eliminados cruza los dos ejes: cualquier `status`, pero
+        // solo archivadas. El resto de pestañas deja `active` sin mandar, y el
+        // backend asume `true` (solo vivas).
+        status: status === 'deleted' ? 'all' : status,
+        active: status === 'deleted' ? false : undefined,
         search: debouncedSearch || undefined,
         debt_filter: debtFilter ?? undefined,
         enrollment_fee_month: enrollmentMonthFilter ?? undefined,
+        skip: page * PAGE_SIZE,
+        limit: PAGE_SIZE,
       });
-      setUsers(data);
+      setUsers(data.items);
+      setTotal(data.total);
+      // La página se quedó fuera de rango (p. ej. se borró la última fila de la
+      // última página): retroceder en vez de mostrar una lista vacía.
+      if (data.items.length === 0 && page > 0) {
+        setPage((p) => Math.max(0, p - 1));
+      }
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -333,15 +437,25 @@ export default function UsersModule(props: UsersModuleProps) {
           : 'No se pudo cargar la lista. Intenta de nuevo.';
       setListError(message);
       setUsers([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
+  }, [role, status, debouncedSearch, debtFilter, enrollmentMonthFilter, page]);
+
+  // Cualquier cambio de filtro o de búsqueda invalida la página en la que se
+  // estaba: la 3 de un listado ya no es la 3 del siguiente.
+  useEffect(() => {
+    setPage(0);
   }, [role, status, debouncedSearch, debtFilter, enrollmentMonthFilter]);
 
+  // El total de activos sale del header, no de contar filas: contándolas se
+  // topaba con el límite de la página y una academia con más de 100 alumnos
+  // mostraba siempre 100. Se pide `limit: 1` porque las filas no se usan.
   const fetchActiveCount = useCallback(async () => {
     try {
-      const data = await listUsers({ role, status: 'active' });
-      setActiveCount(data.length);
+      const data = await listUsers({ role, status: 'active', limit: 1 });
+      setActiveCount(data.total);
     } catch {
       setActiveCount(null);
     }
@@ -352,11 +466,12 @@ export default function UsersModule(props: UsersModuleProps) {
       try {
         const [summary, pending] = await Promise.all([
           getTransactionsSummary({ kind: 'sale' }),
-          listUsers({ role, status: 'pending' }),
+          // Igual que el conteo de activos: interesa el total, no las filas.
+          listUsers({ role, status: 'pending', limit: 1 }),
         ]);
         setReceivable(summary.pending);
         setPendingCount(summary.pending_count);
-        setPendingActivation(pending.length);
+        setPendingActivation(pending.total);
       } catch {
         setReceivable(null);
         setPendingCount(null);
@@ -400,6 +515,8 @@ export default function UsersModule(props: UsersModuleProps) {
     setPanel(null);
     setPanelError(null);
     setPanelApiError(null);
+    setAttempted(null);
+    setConflictError(null);
     setInviteResult(null);
     if (wasInviteResult) {
       fetchList();
@@ -413,7 +530,7 @@ export default function UsersModule(props: UsersModuleProps) {
     setInviteResult(null);
     setPanel({ kind: 'invite' });
   };
-  const openInviteExisting = (user: UserRead) => {
+  const openInviteExisting = (user: UserListRead) => {
     setPanelError(null);
     setPanelApiError(null);
     setInviteResult(null);
@@ -424,43 +541,73 @@ export default function UsersModule(props: UsersModuleProps) {
     setPanelApiError(null);
     setPanel({ kind: 'create' });
   };
-  const openEdit = (user: UserRead) => {
+  const openEdit = (user: UserListRead) => {
     setPanelError(null);
     setPanelApiError(null);
     setPanel({ kind: 'edit', user });
   };
-  const openView = (user: UserRead) => {
+  // La ficha completa ya no viene en el listado: `UserListRead` no trae
+  // `pending_transactions`, que es justo lo que pinta el detalle. Se pide al
+  // abrir, así que el panel tarda una petición en aparecer.
+  const openView = async (user: UserListRead) => {
     setPanelError(null);
     setPanelApiError(null);
-    setPanel({ kind: 'view', user });
-  };
-  const openPay = (user: UserRead) => {
-    if (!user.pending_transactions || user.pending_transactions.length === 0) {
-      return;
+    setOpeningRow(user.id);
+    try {
+      setPanel({ kind: 'view', user: await getUser(user.id) });
+    } catch (err) {
+      showToast(
+        err instanceof ApiError ? err.message : 'No se pudo abrir la ficha.',
+      );
+    } finally {
+      setOpeningRow(null);
     }
-    const oldest = [...user.pending_transactions].sort((a, b) =>
-      a.transaction_date.localeCompare(b.transaction_date),
-    )[0];
+  };
+  // Mismo motivo: el cobro más viejo hay que buscarlo en la ficha completa.
+  const openPay = async (user: UserListRead) => {
     setPanelError(null);
     setPanelApiError(null);
-    setPanel({ kind: 'pay', user, tx: pendingToTransactionRead(oldest, user) });
+    setOpeningRow(user.id);
+    try {
+      const pending = (await getUser(user.id)).pending_transactions ?? [];
+      if (pending.length === 0) {
+        // La fila decía que había deuda y ya no la hay: la pantalla iba atrasada.
+        showToast('Ya no tiene cobros pendientes.');
+        fetchList();
+        return;
+      }
+      const oldest = [...pending].sort((a, b) =>
+        a.transaction_date.localeCompare(b.transaction_date),
+      )[0];
+      setPanel({
+        kind: 'pay',
+        user,
+        tx: pendingToTransactionRead(oldest, user),
+      });
+    } catch (err) {
+      showToast(
+        err instanceof ApiError ? err.message : 'No se pudo abrir el cobro.',
+      );
+    } finally {
+      setOpeningRow(null);
+    }
   };
-  const openPaySpecific = (user: UserRead, t: TransactionUserRead) => {
+  const openPaySpecific = (user: UserListRead, t: TransactionUserRead) => {
     setPanelError(null);
     setPanelApiError(null);
     setPanel({ kind: 'pay', user, tx: pendingToTransactionRead(t, user) });
   };
-  const openRecCreate = (user: UserRead, category: TransactionCategory) => {
+  const openRecCreate = (user: UserListRead, category: TransactionCategory) => {
     setPanelError(null);
     setPanelApiError(null);
     setPanel({ kind: 'rec-create', user, category });
   };
-  const openRecEdit = (user: UserRead, rec: RecurringTransactionRead) => {
+  const openRecEdit = (user: UserListRead, rec: RecurringTransactionRead) => {
     setPanelError(null);
     setPanelApiError(null);
     setPanel({ kind: 'rec-edit', user, rec });
   };
-  const openDebtReminder = async (user: UserRead) => {
+  const openDebtReminder = async (user: UserListRead) => {
     setDebtUser(user);
     setDebtInitial(null);
     setDebtError(null);
@@ -499,6 +646,11 @@ export default function UsersModule(props: UsersModuleProps) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
         setPanelError(err.message);
+        setAttempted({
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          email: payload.email,
+        });
       } else {
         setPanelError('No se pudo generar la invitación.');
       }
@@ -508,7 +660,7 @@ export default function UsersModule(props: UsersModuleProps) {
   };
 
   const handleInviteExisting = async (
-    user: UserRead,
+    user: UserListRead,
     email: string | null,
   ) => {
     setSubmitting(true);
@@ -528,9 +680,9 @@ export default function UsersModule(props: UsersModuleProps) {
     } catch (err) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
-        // 409 "ya completó su registro": la pantalla estaba desactualizada, así
-        // que se recarga para que desaparezca el botón de invitar.
-        if (err.status === 409 && !emailTakenMessage(err)) fetchList();
+        // "Ya completó su registro": la pantalla estaba desactualizada, así que
+        // se recarga para que desaparezca el botón de invitar.
+        if (conflictCode(err) === 'already_registered') fetchList();
         setPanelError(err.message);
       } else {
         setPanelError('No se pudo enviar la invitación.');
@@ -652,11 +804,67 @@ export default function UsersModule(props: UsersModuleProps) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
         setPanelError(err.message);
+        setAttempted(payload);
       } else {
         setPanelError('No se pudo crear el usuario.');
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * Salida del choque de correo cuando la ficha está archivada: se desarchiva y
+   * el panel pasa a edición con lo tecleado ya volcado encima, para revisar y
+   * guardar. No se parchea sola: reactivar no debe decidir por quien reactiva.
+   *
+   * El acceso a la plataforma no vuelve aquí; si además hace falta, se invita
+   * desde la ficha *después* de reactivar (el backend rechaza lo contrario).
+   */
+  const handleRestoreConflict = async (conflict: UserConflict) => {
+    setResolvingConflict(true);
+    setConflictError(null);
+    try {
+      const restored = await restoreUser(conflict.id);
+      setPanelError(null);
+      setPanelApiError(null);
+      setPanel({ kind: 'edit', user: mergeAttempted(restored, attempted) });
+      setAttempted(null);
+      showToast(
+        `Ficha de ${restored.first_name} ${restored.last_name} reactivada. Revisa los datos y sus cobros.`,
+      );
+      fetchList();
+      fetchActiveCount();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // "No estaba borrada": alguien la reactivó mientras tanto.
+        if (conflictCode(err) === 'user_not_deleted') fetchList();
+        setConflictError(err.message);
+      } else {
+        setConflictError('No se pudo reactivar la ficha.');
+      }
+    } finally {
+      setResolvingConflict(false);
+    }
+  };
+
+  // La otra salida: el correo es de alguien que sigue activo, así que lo único
+  // que se puede hacer es abrir su ficha.
+  const handleViewConflict = async (conflict: UserConflict) => {
+    setResolvingConflict(true);
+    setConflictError(null);
+    try {
+      const user = await getUser(conflict.id);
+      setPanelError(null);
+      setPanelApiError(null);
+      setAttempted(null);
+      setPanel({ kind: 'view', user });
+    } catch (err) {
+      setConflictError(
+        err instanceof ApiError ? err.message : 'No se pudo abrir la ficha.',
+      );
+    } finally {
+      setResolvingConflict(false);
     }
   };
 
@@ -753,9 +961,11 @@ export default function UsersModule(props: UsersModuleProps) {
     setDeleting(true);
     try {
       await deleteUser(toDelete.id);
-      setUsers((list) => list.filter((u) => u.id !== toDelete.id));
       showToast(`${toDelete.first_name} ${toDelete.last_name} eliminado`);
       setToDelete(null);
+      // Se recarga en vez de quitar la fila a mano: con paginación, sacarla del
+      // array dejaría el total y la página descuadrados.
+      fetchList();
       fetchActiveCount();
     } catch (err) {
       const message =
@@ -765,6 +975,59 @@ export default function UsersModule(props: UsersModuleProps) {
       showToast(message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // La salida suave del mismo modal: baja temporal, la ficha sigue a la vista.
+  // Se recarga la lista en vez de parchear la fila porque con el filtro en
+  // "Activos" la persona ya no pertenece al listado que se está viendo.
+  const confirmDeactivate = async () => {
+    if (!toDelete) return;
+    setDeactivating(true);
+    try {
+      await updateUser(toDelete.id, statusPatch(toDelete, 'inactive'));
+      showToast(
+        `${toDelete.first_name} ${toDelete.last_name} marcado como inactivo`,
+      );
+      setToDelete(null);
+      fetchList();
+      fetchActiveCount();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudo marcar como inactivo.';
+      showToast(message);
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const confirmRestore = async () => {
+    if (!toRestore) return;
+    setRestoring(true);
+    try {
+      const restored = await restoreUser(toRestore.id);
+      showToast(
+        `${restored.first_name} ${restored.last_name} reactivado como inactivo. Revisa sus cobros desde su ficha.`,
+      );
+      setToRestore(null);
+      // Sale de la lista de eliminados, así que se recarga en vez de parchear.
+      fetchList();
+      fetchActiveCount();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudo reactivar la ficha.';
+      showToast(message);
+      // "No estaba borrada": la pantalla iba atrasada, se refresca igualmente.
+      if (conflictCode(err) === 'user_not_deleted') {
+        setToRestore(null);
+        fetchList();
+      }
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -783,6 +1046,27 @@ export default function UsersModule(props: UsersModuleProps) {
     ),
     [inviteButtonLabel, createButtonLabel],
   );
+
+  // El backend solo manda `user` en el 409 cuando el correo es de esta academia,
+  // así que su presencia es justo la condición para ofrecer una salida: sin él
+  // solo queda pintar el campo en rojo, que es lo que ya hace UserForm.
+  const panelConflict = conflictUser(panelApiError);
+
+  const conflictNotice = panelConflict ? (
+    <ConflictNotice
+      code={conflictCode(panelApiError)}
+      user={panelConflict}
+      moduleRole={role}
+      busy={resolvingConflict}
+      error={conflictError}
+      onRestore={() => handleRestoreConflict(panelConflict)}
+      onView={() => handleViewConflict(panelConflict)}
+    />
+  ) : null;
+
+  // Con el aviso arriba, el mensaje plano del formulario sobraría: dice lo mismo
+  // pero sin salida.
+  const formError = panelConflict ? null : panelError;
 
   if (!token) return <Navigate to="/login" replace />;
 
@@ -895,7 +1179,7 @@ export default function UsersModule(props: UsersModuleProps) {
           </select>
         )}
         <div className="tab-group" role="tablist">
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.value}
               type="button"
@@ -955,7 +1239,11 @@ export default function UsersModule(props: UsersModuleProps) {
           ) : users.length === 0 ? (
             <div className="empty-state">
               <p className="empty-state__title">Sin resultados</p>
-              <p>Ajusta los filtros o invita a un nuevo usuario.</p>
+              <p>
+                {showingDeleted
+                  ? 'No hay fichas eliminadas.'
+                  : 'Ajusta los filtros o invita a un nuevo usuario.'}
+              </p>
             </div>
           ) : (
             <table className="users-table">
@@ -1008,8 +1296,10 @@ export default function UsersModule(props: UsersModuleProps) {
               <tbody>
                 {users.map((u) => {
                   const hasDebt = (u.debt_amount ?? 0) > 0;
-                  const hasPending =
-                    (u.pending_transactions?.length ?? 0) > 0;
+                  // La fila ya no trae los cobros pendientes, así que se deduce
+                  // de lo que sí viene: con deuda o con una fecha de próximo
+                  // cobro, hay algo que cobrar. El detalle se pide al pulsar.
+                  const hasPending = hasDebt || !!u.next_due_date;
                   const payLabel = hasDebt ? 'Pagar' : 'Pagar próximo';
                   const enrollmentNote = enrollmentFeeNoteFor(u);
                   return (
@@ -1083,7 +1373,20 @@ export default function UsersModule(props: UsersModuleProps) {
                         </td>
                       )}
                       <td>
-                        <StatusBadge status={u.status} />
+                        {showingDeleted ? (
+                          <>
+                            <span className="badge badge--inactive">
+                              Eliminado
+                            </span>
+                            {formatDateTimeShort(u.updated_at) && (
+                              <div className="table-cell-stacked__secondary">
+                                {formatDateTimeShort(u.updated_at)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <StatusBadge status={u.status} />
+                        )}
                       </td>
                       {showDebtColumns && (
                         <td
@@ -1118,68 +1421,95 @@ export default function UsersModule(props: UsersModuleProps) {
                         style={{ textAlign: 'right' }}
                       >
                         <div className="row-actions">
-                          {showDebtColumns &&
-                            hasPending &&
-                            (hasDebt || u.next_due_date) && (
+                          {/* Una ficha archivada no admite nada más: invitarla
+                              la deja con una cuenta muerta, cobrarle o editarla
+                              no tiene sentido mientras no vuelva. */}
+                          {showingDeleted ? (
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => setToRestore(u)}
+                              title="Reactivar ficha"
+                              aria-label="Reactivar ficha"
+                            >
+                              <RestoreIcon size={14} />
+                            </button>
+                          ) : (
+                            <>
+                              {showDebtColumns &&
+                                hasPending &&
+                                (hasDebt || u.next_due_date) && (
+                                  <button
+                                    type="button"
+                                    className="icon-btn"
+                                    onClick={() => openPay(u)}
+                                    title={payLabel}
+                                    aria-label={payLabel}
+                                    disabled={openingRow === u.id}
+                                  >
+                                    {openingRow === u.id ? (
+                                      <SpinnerIcon size={14} />
+                                    ) : (
+                                      <CheckIcon size={14} />
+                                    )}
+                                  </button>
+                                )}
+                              {showDebtColumns && canSendDebt && hasDebt && (
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => openDebtReminder(u)}
+                                  title="Enviar recordatorio de deuda"
+                                  aria-label="Enviar recordatorio de deuda"
+                                >
+                                  <MailIcon size={14} />
+                                </button>
+                              )}
+                              {!u.has_access && (
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => openInviteExisting(u)}
+                                  title={inviteRowLabel(u)}
+                                  aria-label={inviteRowLabel(u)}
+                                >
+                                  <KeyIcon size={14} />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="icon-btn"
-                                onClick={() => openPay(u)}
-                                title={payLabel}
-                                aria-label={payLabel}
+                                onClick={() => openView(u)}
+                                title="Ver detalles"
+                                aria-label="Ver detalles"
+                                disabled={openingRow === u.id}
                               >
-                                <CheckIcon size={14} />
+                                {openingRow === u.id ? (
+                                  <SpinnerIcon size={14} />
+                                ) : (
+                                  <EyeIcon size={14} />
+                                )}
                               </button>
-                            )}
-                          {showDebtColumns && canSendDebt && hasDebt && (
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              onClick={() => openDebtReminder(u)}
-                              title="Enviar recordatorio de deuda"
-                              aria-label="Enviar recordatorio de deuda"
-                            >
-                              <MailIcon size={14} />
-                            </button>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => openEdit(u)}
+                                title="Editar"
+                                aria-label="Editar"
+                              >
+                                <PencilIcon size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-btn icon-btn--danger"
+                                onClick={() => setToDelete(u)}
+                                title="Dar de baja"
+                                aria-label="Dar de baja"
+                              >
+                                <TrashIcon size={14} />
+                              </button>
+                            </>
                           )}
-                          {!u.has_access && (
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              onClick={() => openInviteExisting(u)}
-                              title={inviteRowLabel(u)}
-                              aria-label={inviteRowLabel(u)}
-                            >
-                              <KeyIcon size={14} />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            onClick={() => openView(u)}
-                            title="Ver detalles"
-                            aria-label="Ver detalles"
-                          >
-                            <EyeIcon size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            onClick={() => openEdit(u)}
-                            title="Editar"
-                            aria-label="Editar"
-                          >
-                            <PencilIcon size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-btn icon-btn--danger"
-                            onClick={() => setToDelete(u)}
-                            title="Eliminar"
-                            aria-label="Eliminar"
-                          >
-                            <TrashIcon size={14} />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1189,6 +1519,16 @@ export default function UsersModule(props: UsersModuleProps) {
             </table>
           )}
         </div>
+
+        {!loading && !listError && (
+          <Paginator
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            shown={users.length}
+            onChange={setPage}
+          />
+        )}
       </section>
 
       <SidePanel
@@ -1206,14 +1546,17 @@ export default function UsersModule(props: UsersModuleProps) {
               onDone={closePanel}
             />
           ) : (
-            <InviteForm
-              role={role}
-              onSubmit={handleInvite}
-              onCancel={closePanel}
-              submitting={submitting}
-              serverError={panelError}
-              apiError={panelApiError}
-            />
+            <>
+              {conflictNotice}
+              <InviteForm
+                role={role}
+                onSubmit={handleInvite}
+                onCancel={closePanel}
+                submitting={submitting}
+                serverError={formError}
+                apiError={panelApiError}
+              />
+            </>
           ))}
       </SidePanel>
 
@@ -1239,14 +1582,17 @@ export default function UsersModule(props: UsersModuleProps) {
               onDone={closePanel}
             />
           ) : (
-            <InviteAccessForm
-              user={panel.user}
-              onSubmit={(email) => handleInviteExisting(panel.user, email)}
-              onCancel={closePanel}
-              submitting={submitting}
-              serverError={panelError}
-              apiError={panelApiError}
-            />
+            <>
+              {conflictNotice}
+              <InviteAccessForm
+                user={panel.user}
+                onSubmit={(email) => handleInviteExisting(panel.user, email)}
+                onCancel={closePanel}
+                submitting={submitting}
+                serverError={formError}
+                apiError={panelApiError}
+              />
+            </>
           ))}
       </SidePanel>
 
@@ -1256,16 +1602,19 @@ export default function UsersModule(props: UsersModuleProps) {
         onClose={closePanel}
       >
         {panel?.kind === 'create' && (
-          <UserForm
-            mode="create"
-            role={role}
-            academy={me?.academy}
-            onSubmit={handleCreate}
-            onCancel={closePanel}
-            submitting={submitting}
-            serverError={panelError}
-            apiError={panelApiError}
-          />
+          <>
+            {conflictNotice}
+            <UserForm
+              mode="create"
+              role={role}
+              academy={me?.academy}
+              onSubmit={handleCreate}
+              onCancel={closePanel}
+              submitting={submitting}
+              serverError={formError}
+              apiError={panelApiError}
+            />
+          </>
         )}
       </SidePanel>
 
@@ -1465,17 +1814,57 @@ export default function UsersModule(props: UsersModuleProps) {
 
       <ConfirmModal
         open={!!toDelete}
-        title="Eliminar usuario"
-        message={
+        title={
           toDelete
-            ? `¿Eliminar a ${toDelete.first_name} ${toDelete.last_name}? Esta acción no se puede deshacer.`
+            ? `Dar de baja a ${toDelete.first_name} ${toDelete.last_name}`
             : ''
         }
-        confirmLabel="Eliminar"
+        message={
+          <div className="modal__choices">
+            {toDelete?.status !== 'inactive' && (
+              <div className="modal__choice">
+                <p className="modal__choice-title">Marcar como inactivo</p>
+                <p className="modal__choice-text">
+                  Deja de contar como activo, pero la ficha sigue en la lista
+                  con todo su historial. Puedes reactivarla cuando quieras.
+                </p>
+              </div>
+            )}
+            <div className="modal__choice">
+              <p className="modal__choice-title">Eliminar ficha</p>
+              <p className="modal__choice-text">
+                Se archiva: desaparece de las listas, se le cancelan los cobros
+                recurrentes y pierde el acceso a la plataforma. Su correo sigue
+                reservado y solo un administrador puede recuperarla.
+              </p>
+            </div>
+          </div>
+        }
+        confirmLabel="Eliminar ficha"
+        // Sin la salida suave cuando ya está inactivo: ahí solo queda archivar.
+        secondaryLabel={
+          toDelete?.status !== 'inactive' ? 'Marcar como inactivo' : undefined
+        }
+        onSecondary={confirmDeactivate}
+        secondaryLoading={deactivating}
         danger
         loading={deleting}
         onConfirm={confirmDelete}
-        onCancel={() => !deleting && setToDelete(null)}
+        onCancel={() => !deleting && !deactivating && setToDelete(null)}
+      />
+
+      <ConfirmModal
+        open={!!toRestore}
+        title={
+          toRestore
+            ? `Reactivar a ${toRestore.first_name} ${toRestore.last_name}`
+            : ''
+        }
+        message="Vuelve como inactivo, sin sus cobros recurrentes y sin acceso a la plataforma. Conserva su historial, su deuda pendiente y su número. Desde su ficha podrás activarlo, configurar sus cobros e invitarlo de nuevo."
+        confirmLabel="Reactivar"
+        loading={restoring}
+        onConfirm={confirmRestore}
+        onCancel={() => !restoring && setToRestore(null)}
       />
     </Layout>
   );

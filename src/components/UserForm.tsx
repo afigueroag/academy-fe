@@ -4,7 +4,7 @@ import type {
   GroupPublic,
   PaymentMethod,
   UserCreate,
-  UserRead,
+  UserListRead,
   UserRole,
   UserStatus,
   UserUpdate,
@@ -87,7 +87,7 @@ const EMPTY: FormState = {
   status: 'active',
 };
 
-function fromUser(u: UserRead): FormState {
+function fromUser(u: UserListRead): FormState {
   return {
     first_name: u.first_name,
     last_name: u.last_name,
@@ -124,7 +124,7 @@ interface CreateProps {
 interface EditProps {
   mode: 'edit';
   role: UserRole;
-  user: UserRead;
+  user: UserListRead;
   onSubmit: (payload: UserUpdate) => Promise<void>;
   onCancel: () => void;
   submitting: boolean;

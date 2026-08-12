@@ -78,6 +78,8 @@ import type {
   UserCreate,
   UserInvite,
   UserInviteExisting,
+  UserListPage,
+  UserListRead,
   UserMe,
   UserPassword,
   UserPublic,
@@ -279,7 +281,23 @@ export async function updateMe(patch: UserUpdate): Promise<UserMe> {
   return (await res.json()) as UserMe;
 }
 
-export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
+/**
+ * Listado paginado. `limit` va de 1 a 200 (default 100 en el backend); pasarse
+ * responde 422. El total viene en el header `X-Total-Count` con los filtros
+ * aplicados e ignorando `skip`/`limit`.
+ *
+ * Si el header no llega —el caso típico es que el backend no lo publique en
+ * `Access-Control-Expose-Headers` y el navegador lo esconda— se cae al tamaño
+ * de la página: el paginador queda inservible pero la lista se ve igual, en vez
+ * de mostrar "0 resultados" sobre datos que sí llegaron.
+ *
+ * El listado viene ordenado por apellido, nombre e id, y devuelve `UserListRead`
+ * (sin `academy` ni `pending_transactions`). **No reordenar en cliente**: solo
+ * afectaría a la página visible y daría la impresión de que faltan registros.
+ */
+export async function listUsers(
+  params: ListUsersParams,
+): Promise<UserListPage> {
   const q = new URLSearchParams();
   if (params.role) q.set('role', params.role);
   if (params.status && params.status !== 'all') q.set('status', params.status);
@@ -293,7 +311,15 @@ export async function listUsers(params: ListUsersParams): Promise<UserRead[]> {
 
   const res = await authFetch(`/users?${q.toString()}`);
   if (!res.ok) throw await parseError(res);
-  return (await res.json()) as UserRead[];
+  const items = (await res.json()) as UserListRead[];
+  // Ojo con el atajo `Number(res.headers.get(...))`: si el header no llega,
+  // `Number(null)` es 0 y el listado se quedaría "vacío" con datos en la mano.
+  const raw = res.headers.get('X-Total-Count');
+  const total = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return {
+    items,
+    total: Number.isFinite(total) && total >= 0 ? total : items.length,
+  };
 }
 
 export async function getUser(id: number): Promise<UserRead> {

@@ -1,4 +1,4 @@
-import type { UserGender, UserRead } from '../types';
+import type { UserGender, UserListRead } from '../types';
 
 /**
  * Datos personales y de contactos del estudiante (género, código postal,
@@ -48,7 +48,7 @@ export const EMPTY_STUDENT_EXTRA: StudentExtra = {
   emergency_contact_2_relationship: '',
 };
 
-export function studentExtraFromUser(u: UserRead): StudentExtra {
+export function studentExtraFromUser(u: UserListRead): StudentExtra {
   return {
     gender: u.gender ?? '',
     postal_code: u.postal_code ?? '',

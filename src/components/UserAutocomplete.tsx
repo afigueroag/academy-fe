@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { UserRead, UserRole } from '../types';
+import type { UserListRead, UserRole } from '../types';
 import { ApiError, listUsers } from '../api';
 import { SearchIcon, SpinnerIcon } from '../brand';
 import { labelUserRole } from '../utils/roles';
@@ -24,7 +24,7 @@ export default function UserAutocomplete({
 }: UserAutocompleteProps) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [results, setResults] = useState<UserRead[]>([]);
+  const [results, setResults] = useState<UserListRead[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -50,7 +50,7 @@ export default function UserAutocomplete({
           status: 'active',
         });
         if (!cancelled) {
-          setResults(data);
+          setResults(data.items);
           setActiveIdx(0);
         }
       } catch (err) {
@@ -80,7 +80,7 @@ export default function UserAutocomplete({
 
   const visible = results.filter((u) => !excludeIds.includes(u.id));
 
-  const pick = (u: UserRead) => {
+  const pick = (u: UserListRead) => {
     onSelect({ id: u.id, first_name: u.first_name, last_name: u.last_name });
     setQuery('');
     setOpen(false);

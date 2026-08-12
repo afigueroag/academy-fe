@@ -475,6 +475,26 @@ export interface UserConflict {
   updated_at: string | null;
 }
 
+/**
+ * Fila del listado (`GET /users`). Es un esquema más liviano que `UserRead`: no
+ * trae `academy` —el listado ya filtra por la del token— ni
+ * `pending_transactions`, que era una lista completa de transacciones por cada
+ * fila. Para la deuda de la tabla están `debt_amount`, `next_due_date` y
+ * `next_due_amount`; si hace falta el detalle de los cobros pendientes hay que
+ * pedir la ficha con `getUser(id)`, que sigue devolviendo `UserRead` entero.
+ */
+export type UserListRead = Omit<UserRead, 'academy' | 'pending_transactions'>;
+
+/**
+ * Página del listado. `total` sale del header `X-Total-Count`, que cuenta con
+ * los filtros aplicados e ignorando `skip`/`limit`. Es lo único que permite
+ * dibujar el paginador: el cuerpo sigue siendo el array de siempre.
+ */
+export interface UserListPage {
+  items: UserListRead[];
+  total: number;
+}
+
 export interface ListUsersParams {
   // Sin rol: devuelve personas de todos los roles.
   role?: UserRole;
