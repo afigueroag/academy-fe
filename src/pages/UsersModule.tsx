@@ -25,6 +25,7 @@ import {
   getUser,
   inviteExistingUser,
   inviteUser,
+  listCourses,
   listUsers,
   restoreUser,
   suggestDebtReminder,
@@ -34,6 +35,8 @@ import {
 } from '../api';
 import type {
   AnnouncementCreate,
+  CourseRead,
+  CourseUserRead,
   Debt,
   FinancePayrollKpis,
   RecurringTransactionCreate,
@@ -84,6 +87,10 @@ interface UsersModuleProps {
   showDebtColumns?: boolean;
   debtFilter?: Debt | null;
   onDebtFilterChange?: (d: Debt | null) => void;
+  // Filtro por clase inscrita. Si se pasa el handler, se muestra el selector con
+  // las clases vigentes de la academia.
+  courseFilter?: number | null;
+  onCourseFilterChange?: (id: number | null) => void;
   // Filtro por mes de matrícula anual (1-12). Si se pasa el handler, se muestra.
   enrollmentMonthFilter?: number | null;
   onEnrollmentMonthFilterChange?: (m: number | null) => void;
@@ -207,6 +214,53 @@ function yearOf(value: string | null): number | null {
   return Number.isFinite(year) && year > 0 ? year : null;
 }
 
+/**
+ * ¿La clase sigue vigente? `status: 'active'` ya lo filtra el backend; aquí se
+ * descartan además las que ya terminaron (`end_date` pasada), que siguen
+ * activas pero no admiten alumnos nuevos. Sin `end_date` es indefinida.
+ */
+function isCurrentCourse(c: CourseRead): boolean {
+  if (!c.end_date) return true;
+  const today = new Date().toISOString().slice(0, 10);
+  return c.end_date >= today;
+}
+
+// Cuántas clases se listan antes de agrupar el resto en un chip "+N". Dos
+// entran sin ensanchar la columna ni romper el alto de la fila; el resto se
+// consulta en el tooltip o abriendo la ficha.
+const COURSE_CHIPS_VISIBLE = 2;
+
+/**
+ * Clases inscritas del alumno como chips. Los nombres largos se recortan por
+ * CSS (elipsis) y el nombre completo queda en el `title`, para que la columna
+ * no dicte el ancho de la tabla.
+ */
+function CourseChips({ courses }: { courses?: CourseUserRead[] | null }) {
+  if (!courses || courses.length === 0)
+    return <span className="table-cell--muted">—</span>;
+
+  const visible = courses.slice(0, COURSE_CHIPS_VISIBLE);
+  const rest = courses.slice(COURSE_CHIPS_VISIBLE);
+
+  return (
+    <div className="course-chips">
+      {visible.map((c) => (
+        <span key={c.id} className="course-chip" title={c.name}>
+          {c.name}
+        </span>
+      ))}
+      {rest.length > 0 && (
+        <span
+          className="course-chip course-chip--more"
+          title={rest.map((c) => c.name).join(', ')}
+        >
+          +{rest.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
 const DEFAULT_GRACE_DAYS = 7;
 
 /**
@@ -314,6 +368,8 @@ export default function UsersModule(props: UsersModuleProps) {
     showDebtColumns = false,
     debtFilter = null,
     onDebtFilterChange,
+    courseFilter = null,
+    onCourseFilterChange,
     enrollmentMonthFilter = null,
     onEnrollmentMonthFilterChange,
   } = props;
@@ -348,6 +404,11 @@ export default function UsersModule(props: UsersModuleProps) {
   const [payrollKpis, setPayrollKpis] = useState<FinancePayrollKpis | null>(
     null,
   );
+
+  // Opciones del filtro por clase. Se piden una sola vez: solo cambian al crear
+  // o archivar clases, no al pasear por el listado.
+  const [courseOptions, setCourseOptions] = useState<CourseRead[]>([]);
+  const showCourseFilter = showDebtColumns && !!onCourseFilterChange;
 
   const [panel, setPanel] = useState<PanelState>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -406,6 +467,25 @@ export default function UsersModule(props: UsersModuleProps) {
     return () => window.clearTimeout(t);
   }, [search]);
 
+  // Clases vigentes para el selector. Si falla se queda vacío y el filtro no se
+  // pinta: es un filtro opcional, no vale la pena romper el listado por él.
+  useEffect(() => {
+    if (!showCourseFilter) return;
+    let cancelled = false;
+    listCourses({ active: true, status: 'active', limit: 200 })
+      .then((data) => {
+        if (!cancelled) setCourseOptions(data.filter(isCurrentCourse));
+      })
+      .catch(() => {
+        if (!cancelled) setCourseOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Depende del booleano y no del handler: así un padre que pase una lambda
+    // en vez de un setter no dispara una petición por render.
+  }, [showCourseFilter]);
+
   const fetchList = useCallback(async () => {
     setLoading(true);
     setListError(null);
@@ -420,6 +500,7 @@ export default function UsersModule(props: UsersModuleProps) {
         search: debouncedSearch || undefined,
         debt_filter: debtFilter ?? undefined,
         enrollment_fee_month: enrollmentMonthFilter ?? undefined,
+        course_id: courseFilter ?? undefined,
         skip: page * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
@@ -441,13 +522,28 @@ export default function UsersModule(props: UsersModuleProps) {
     } finally {
       setLoading(false);
     }
-  }, [role, status, debouncedSearch, debtFilter, enrollmentMonthFilter, page]);
+  }, [
+    role,
+    status,
+    debouncedSearch,
+    debtFilter,
+    enrollmentMonthFilter,
+    courseFilter,
+    page,
+  ]);
 
   // Cualquier cambio de filtro o de búsqueda invalida la página en la que se
   // estaba: la 3 de un listado ya no es la 3 del siguiente.
   useEffect(() => {
     setPage(0);
-  }, [role, status, debouncedSearch, debtFilter, enrollmentMonthFilter]);
+  }, [
+    role,
+    status,
+    debouncedSearch,
+    debtFilter,
+    enrollmentMonthFilter,
+    courseFilter,
+  ]);
 
   // El total de activos sale del header, no de contar filas: contándolas se
   // topaba con el límite de la página y una academia con más de 100 alumnos
@@ -1141,6 +1237,26 @@ export default function UsersModule(props: UsersModuleProps) {
             aria-label="Buscar"
           />
         </div>
+        {showCourseFilter && courseOptions.length > 0 && (
+          <select
+            className="select"
+            value={courseFilter ?? ''}
+            onChange={(e) =>
+              onCourseFilterChange(
+                e.target.value ? Number(e.target.value) : null,
+              )
+            }
+            aria-label="Filtrar por clase inscrita"
+            style={{ width: 'auto', maxWidth: 240 }}
+          >
+            <option value="">Todas las clases</option>
+            {courseOptions.map((c) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         {showDebtColumns && onDebtFilterChange && (
           <select
             className="select"
@@ -1253,7 +1369,7 @@ export default function UsersModule(props: UsersModuleProps) {
                   {showDebtColumns && (
                     <th className="table-cell--nowrap">Año / N.º</th>
                   )}
-                  {showDebtColumns && <th>Grupo</th>}
+                  {showDebtColumns && <th>Clases inscritas</th>}
                   {!showDebtColumns && <th>Email</th>}
                   {showDebtColumns && (
                     <th
@@ -1326,11 +1442,7 @@ export default function UsersModule(props: UsersModuleProps) {
                       )}
                       {showDebtColumns && (
                         <td>
-                          {u.groups && u.groups.length > 0 ? (
-                            u.groups.map((g) => g.name).join(', ')
-                          ) : (
-                            <span className="table-cell--muted">—</span>
-                          )}
+                          <CourseChips courses={u.courses} />
                         </td>
                       )}
                       {!showDebtColumns && <td>{u.email ?? '—'}</td>}

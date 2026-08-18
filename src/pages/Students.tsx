@@ -7,6 +7,7 @@ export default function Students() {
   const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<
     number | null
   >(null);
+  const [courseFilter, setCourseFilter] = useState<number | null>(null);
 
   return (
     <UsersModule
@@ -20,6 +21,8 @@ export default function Students() {
       editTitle="Editar Estudiante"
       viewTitle="Detalles del Estudiante"
       showDebtColumns
+      courseFilter={courseFilter}
+      onCourseFilterChange={setCourseFilter}
       debtFilter={debtFilter}
       onDebtFilterChange={setDebtFilter}
       enrollmentMonthFilter={enrollmentMonthFilter}

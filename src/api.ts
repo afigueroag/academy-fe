@@ -308,6 +308,7 @@ export async function listUsers(
   if (params.debt_filter) q.set('debt_filter', params.debt_filter);
   if (params.enrollment_fee_month !== undefined)
     q.set('enrollment_fee_month', String(params.enrollment_fee_month));
+  if (params.course_id !== undefined) q.set('course_id', String(params.course_id));
   if (params.active !== undefined) q.set('active', String(params.active));
   if (params.skip !== undefined) q.set('skip', String(params.skip));
   if (params.limit !== undefined) q.set('limit', String(params.limit));

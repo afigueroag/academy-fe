@@ -252,6 +252,10 @@ export interface UserRead {
   // Grupos a los que pertenece el alumno (puede pertenecer a varios, incluso de
   // la misma categoría). Ver GroupPublic.
   groups?: GroupPublic[] | null;
+  // Clases en las que está inscrito. El backend las resuelve en el propio
+  // listado (`UserListRead`), así que la tabla no necesita pegarle a
+  // `/enrollments` por fila. Ver CourseUserRead.
+  courses?: CourseUserRead[] | null;
   // Montos activos de la tabla (cents); el BE ya los expone (nullable).
   tuition_amount: number | null; // costo mensualidad activa (cents)
   enrollment_fee_amount: number | null; // costo matrícula anual activa (cents)
@@ -271,6 +275,13 @@ export interface GroupCategoryPublic {
   id: number;
   name: string;
   is_ordinal: boolean;
+}
+
+// Clase tal como viene anidada en el usuario: solo id y nombre, sin `status`.
+// Para saber si una clase está vigente hay que mirar `/courses`, no esto.
+export interface CourseUserRead {
+  id: number;
+  name: string;
 }
 
 export interface GroupPublic {
@@ -503,6 +514,10 @@ export interface ListUsersParams {
   debt_filter?: Debt;
   // Mes (1-12): devuelve estudiantes con matrícula anual programada ese mes.
   enrollment_fee_month?: number;
+  // Solo alumnos inscritos en esta clase. El backend lo aplica antes de
+  // `skip`/`limit` y lo refleja en `X-Total-Count`, así que el paginador sigue
+  // siendo válido con el filtro puesto.
+  course_id?: number;
   active?: boolean;
   skip?: number;
   limit?: number;
