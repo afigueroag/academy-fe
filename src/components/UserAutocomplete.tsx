@@ -3,6 +3,7 @@ import type { UserListRead, UserRole } from '../types';
 import { ApiError, listUsers } from '../api';
 import { SearchIcon, SpinnerIcon } from '../brand';
 import { labelUserRole } from '../utils/roles';
+import { userNumber } from '../utils/users';
 
 interface UserAutocompleteProps {
   // Sin rol: busca en todas las personas y muestra el rol de cada resultado.
@@ -14,11 +15,18 @@ interface UserAutocompleteProps {
   autoFocus?: boolean;
 }
 
+// Línea secundaria del resultado: número y correo, en ese orden.
+function itemMeta(u: UserListRead): string {
+  return [userNumber(u), u.email].filter(Boolean).join(' · ');
+}
+
 export default function UserAutocomplete({
   role,
   excludeIds = [],
   onSelect,
-  placeholder = 'Buscar por nombre',
+  // El `search` de GET /users también busca por correo, consecutivo y año de
+  // ingreso; el marcador de posición lo dice para que no parezca solo-nombre.
+  placeholder = 'Buscar por nombre, correo o N.º',
   ariaLabel = 'Buscar',
   autoFocus = false,
 }: UserAutocompleteProps) {
@@ -144,11 +152,19 @@ export default function UserAutocomplete({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(u)}
               >
-                {u.first_name} {u.last_name}
-                {!role && u.role && (
-                  <span className="autocomplete__item-role">
-                    {labelUserRole(u.role)}
-                  </span>
+                <span>
+                  {u.first_name} {u.last_name}
+                  {!role && u.role && (
+                    <span className="autocomplete__item-role">
+                      {labelUserRole(u.role)}
+                    </span>
+                  )}
+                </span>
+                {/* Correo y número: son campos por los que se puede buscar, así
+                    que se muestran para que se vea por qué salió el resultado
+                    y para desempatar homónimos. */}
+                {itemMeta(u) && (
+                  <span className="autocomplete__item-meta">{itemMeta(u)}</span>
                 )}
               </button>
             ))}

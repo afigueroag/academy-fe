@@ -12,6 +12,7 @@ export default function Instructors() {
       createTitle="Crear Instructor"
       editTitle="Editar Instructor"
       viewTitle="Detalles del Instructor"
+      searchPlaceholder="Buscar por nombre, correo o N.º de instructor"
     />
   );
 }

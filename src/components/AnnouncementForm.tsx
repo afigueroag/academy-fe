@@ -538,7 +538,7 @@ export default function AnnouncementForm({
                 <UserAutocomplete
                   excludeIds={userIds}
                   onSelect={addUser}
-                  placeholder="Buscar persona por nombre"
+                  placeholder="Buscar persona por nombre, correo o N.º"
                   ariaLabel="Buscar persona"
                 />
                 {users.length > 0 && (

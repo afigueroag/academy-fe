@@ -70,6 +70,7 @@ import {
 import { formatMoney } from '../utils/money';
 import { formatDateTimeShort } from '../utils/dates';
 import { conflictCode, conflictUser } from '../utils/invites';
+import { userNumber } from '../utils/users';
 import ConflictNotice from '../components/ConflictNotice';
 import Paginator from '../components/Paginator';
 import KpiCard from '../components/charts/KpiCard';
@@ -87,6 +88,10 @@ interface UsersModuleProps {
   showDebtColumns?: boolean;
   debtFilter?: Debt | null;
   onDebtFilterChange?: (d: Debt | null) => void;
+  // Texto del buscador. Cada módulo nombra su propio consecutivo ("N.º de
+  // estudiante", "N.º de instructor"); el resto de campos que cubre `search` va
+  // en SEARCH_FIELDS_HINT.
+  searchPlaceholder?: string;
   // Filtro por clase inscrita. Si se pasa el handler, se muestra el selector con
   // las clases vigentes de la academia.
   courseFilter?: number | null;
@@ -129,6 +134,13 @@ const DELETED_FILTER: { value: Filter; label: string } = {
   value: 'deleted',
   label: 'Eliminados',
 };
+
+// Campos que cubre el `search` de GET /users. El backend busca por nombre,
+// apellido, correo, consecutivo (`role_consecutive`) y año de ingreso
+// (`entry_year`) — cada uno por separado, no por el número compuesto
+// "2025-839" que pinta la tabla.
+const SEARCH_FIELDS_HINT =
+  'La búsqueda cubre nombre, apellido, correo, número y año de ingreso.';
 
 // Tamaño de página. El backend acepta de 1 a 200 y responde 422 por encima.
 const PAGE_SIZE = 100;
@@ -195,23 +207,6 @@ function formatDateShort(value: string | null): string {
     month: 'short',
     year: '2-digit',
   });
-}
-
-/**
- * Número de estudiante con el año de ingreso como prefijo (p. ej. "2025-839").
- * Usa `entry_year` del backend y, si viene vacío, lo deriva de `start_date`.
- * Sin año disponible se muestra solo el consecutivo.
- */
-function studentNumber(u: UserListRead): string | null {
-  if (u.role_consecutive == null) return null;
-  const year = u.entry_year ?? yearOf(u.start_date);
-  return year ? `${year}-${u.role_consecutive}` : String(u.role_consecutive);
-}
-
-function yearOf(value: string | null): number | null {
-  if (!value) return null;
-  const year = Number(value.slice(0, 4));
-  return Number.isFinite(year) && year > 0 ? year : null;
 }
 
 /**
@@ -366,6 +361,7 @@ export default function UsersModule(props: UsersModuleProps) {
     editTitle,
     viewTitle,
     showDebtColumns = false,
+    searchPlaceholder = 'Buscar por nombre, correo o N.º',
     debtFilter = null,
     onDebtFilterChange,
     courseFilter = null,
@@ -1233,8 +1229,9 @@ export default function UsersModule(props: UsersModuleProps) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o apellido"
-            aria-label="Buscar"
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            title={SEARCH_FIELDS_HINT}
           />
         </div>
         {showCourseFilter && courseOptions.length > 0 && (
@@ -1360,6 +1357,11 @@ export default function UsersModule(props: UsersModuleProps) {
                   ? 'No hay fichas eliminadas.'
                   : 'Ajusta los filtros o invita a un nuevo usuario.'}
               </p>
+              {/* Con una búsqueda escrita, lo útil no es "ajusta los filtros"
+                  sino saber por qué campos se puede buscar. */}
+              {!!debouncedSearch && (
+                <p className="empty-state__hint">{SEARCH_FIELDS_HINT}</p>
+              )}
             </div>
           ) : (
             <table className="users-table">
@@ -1428,14 +1430,22 @@ export default function UsersModule(props: UsersModuleProps) {
                           >
                             {initials(u.first_name, u.last_name)}
                           </div>
-                          <div className="user-cell__name">
-                            {u.first_name} {u.last_name}
+                          <div>
+                            <div className="user-cell__name">
+                              {u.first_name} {u.last_name}
+                            </div>
+                            {/* En estudiantes no hay columna de correo y el
+                                buscador sí busca por él: se muestra bajo el
+                                nombre para que el resultado se entienda. */}
+                            {showDebtColumns && u.email && (
+                              <div className="user-cell__email">{u.email}</div>
+                            )}
                           </div>
                         </div>
                       </td>
                       {showDebtColumns && (
                         <td className="table-cell--nowrap">
-                          {studentNumber(u) ?? (
+                          {userNumber(u) ?? (
                             <span className="table-cell--muted">—</span>
                           )}
                         </td>

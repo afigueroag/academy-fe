@@ -49,7 +49,7 @@ Agregar un módulo al sidebar: editar `<nav className="sidebar__nav">` en [Layou
 - `.search-input` (relativo, icono `<SearchIcon>` absoluto a la izquierda + `<input type="search">`)
 - `.tab-group` con `.tab-group__item` (+ `--active`)
 
-**Tabla** — `.table-wrapper > table.users-table`. Th uppercase muted; tbody hover con tinte primary. Celda de usuario: `.user-cell` con `.user-cell__avatar` (iniciales) + `.user-cell__name`. Acciones por fila: `.row-actions > .icon-btn` (+ `--danger`). Vacío: `.empty-state` con `.empty-state__title`. Cargando: `.loading-row` + `<SpinnerIcon />`.
+**Tabla** — `.table-wrapper > table.users-table`. Th uppercase muted; tbody hover con tinte primary. Celda de usuario: `.user-cell` con `.user-cell__avatar` (iniciales) + `.user-cell__name` (+ `.user-cell__email`, línea secundaria muted). Listas de etiquetas dentro de una celda: `.course-chips > .course-chip` (recorta con elipsis; el sobrante va en un `.course-chip--more` con el resto en el `title`). Acciones por fila: `.row-actions > .icon-btn` (+ `--danger`). Vacío: `.empty-state` con `.empty-state__title` (+ `.empty-state__hint` para la pista secundaria). Cargando: `.loading-row` + `<SpinnerIcon />`.
 
 **Badges de estado** — `.badge` + `.badge--active|--pending|--inactive`. Usa el componente `<StatusBadge status>` directamente.
 

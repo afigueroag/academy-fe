@@ -967,6 +967,16 @@ button {
   font-weight: 600;
 }
 
+.user-cell__email {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
 .user-cell__avatar {
   width: 32px;
   height: 32px;
@@ -1776,6 +1786,21 @@ button {
   font-size: 14px;
   color: var(--color-text);
   cursor: pointer;
+}
+
+.autocomplete__item-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete__item:hover .autocomplete__item-meta,
+.autocomplete__item--active .autocomplete__item-meta {
+  color: inherit;
 }
 
 .autocomplete__item-role {
