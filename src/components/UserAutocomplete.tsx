@@ -3,7 +3,7 @@ import type { UserListRead, UserRole } from '../types';
 import { ApiError, listUsers } from '../api';
 import { SearchIcon, SpinnerIcon } from '../brand';
 import { labelUserRole } from '../utils/roles';
-import { userNumber } from '../utils/users';
+import { userNumber, userNumberTerm } from '../utils/users';
 
 interface UserAutocompleteProps {
   // Sin rol: busca en todas las personas y muestra el rol de cada resultado.
@@ -15,7 +15,7 @@ interface UserAutocompleteProps {
   autoFocus?: boolean;
 }
 
-// Línea secundaria del resultado: expediente y correo, en ese orden.
+// Línea secundaria del resultado: número de la persona y correo, en ese orden.
 function itemMeta(u: UserListRead): string {
   return [userNumber(u), u.email].filter(Boolean).join(' · ');
 }
@@ -26,7 +26,8 @@ export default function UserAutocomplete({
   onSelect,
   // El `search` de GET /users también busca por correo, consecutivo y año de
   // ingreso; el marcador de posición lo dice para que no parezca solo-nombre.
-  placeholder = 'Buscar por nombre, correo o expediente',
+  // Sin rol la búsqueda mezcla personas, y `userNumberTerm` cae al neutro.
+  placeholder = `Buscar por nombre, correo o ${userNumberTerm(role)}`,
   ariaLabel = 'Buscar',
   autoFocus = false,
 }: UserAutocompleteProps) {

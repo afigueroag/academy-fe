@@ -74,7 +74,7 @@ import {
   conflictUser,
   consecutiveTakenMessage,
 } from '../utils/invites';
-import { userNumber } from '../utils/users';
+import { userNumber, userNumberLabel, userNumberTerm } from '../utils/users';
 import ConflictNotice from '../components/ConflictNotice';
 import Paginator from '../components/Paginator';
 import KpiCard from '../components/charts/KpiCard';
@@ -92,8 +92,9 @@ interface UsersModuleProps {
   showDebtColumns?: boolean;
   debtFilter?: Debt | null;
   onDebtFilterChange?: (d: Debt | null) => void;
-  // Texto del buscador. El resto de campos que cubre `search` va en
-  // SEARCH_FIELDS_HINT, que es lo que se pinta al no haber resultados.
+  // Texto del buscador. Por defecto se arma con el término del rol; el resto de
+  // campos que cubre `search` va en `searchFieldsHint`, que es lo que se pinta
+  // al no haber resultados.
   searchPlaceholder?: string;
   // Filtro por clase inscrita. Si se pasa el handler, se muestra el selector con
   // las clases vigentes de la academia.
@@ -142,10 +143,14 @@ const DELETED_FILTER: { value: Filter; label: string } = {
 // apellido, correo, consecutivo (`role_consecutive`) y año de ingreso
 // (`entry_year`) — cada uno por separado, no por el número compuesto
 // "2025-839" que pinta la tabla.
-const SEARCH_FIELDS_HINT =
-  'La búsqueda cubre nombre, apellido, correo, expediente y año de ingreso. ' +
-  'El expediente y el año se buscan por coincidencia exacta: escribir 2024 ' +
-  'devuelve a quienes ingresaron ese año y, si existe, al del expediente 2024.';
+function searchFieldsHint(role: UserRole): string {
+  const term = userNumberTerm(role);
+  return (
+    `La búsqueda cubre nombre, apellido, correo, ${term} y año de ingreso. ` +
+    `El ${term} y el año se buscan por coincidencia exacta: escribir 2024 ` +
+    `devuelve a quienes ingresaron ese año y, si existe, al del ${term} 2024.`
+  );
+}
 
 // Tamaño de página. El backend acepta de 1 a 200 y responde 422 por encima.
 const PAGE_SIZE = 100;
@@ -366,7 +371,7 @@ export default function UsersModule(props: UsersModuleProps) {
     editTitle,
     viewTitle,
     showDebtColumns = false,
-    searchPlaceholder = 'Buscar por nombre, correo o expediente',
+    searchPlaceholder = `Buscar por nombre, correo o ${userNumberTerm(props.role)}`,
     debtFilter = null,
     onDebtFilterChange,
     courseFilter = null,
@@ -374,6 +379,12 @@ export default function UsersModule(props: UsersModuleProps) {
     enrollmentMonthFilter = null,
     onEnrollmentMonthFilterChange,
   } = props;
+
+  // Cómo se nombra el correlativo en este módulo ("No. estudiante" en alumnos,
+  // "No. instructor" en instructores): encabezado de la tabla y ayuda del
+  // buscador salen de aquí.
+  const numberLabel = userNumberLabel(role);
+  const searchHint = searchFieldsHint(role);
 
   const token = getToken();
   const { me } = useAuth();
@@ -986,7 +997,7 @@ export default function UsersModule(props: UsersModuleProps) {
     } catch (err) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
-        // El expediente repetido se pinta en su propio campo, nombrando a quien
+        // El número repetido se pinta en su propio campo, nombrando a quien
         // lo tiene; el aviso genérico repetiría el error sin ese dato.
         setPanelError(consecutiveTakenMessage(err) ? null : err.message);
       } else {
@@ -1246,7 +1257,7 @@ export default function UsersModule(props: UsersModuleProps) {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            title={SEARCH_FIELDS_HINT}
+            title={searchHint}
           />
         </div>
         {showCourseFilter && courseOptions.length > 0 && (
@@ -1386,7 +1397,7 @@ export default function UsersModule(props: UsersModuleProps) {
               {/* Con una búsqueda escrita, lo útil no es "ajusta los filtros"
                   sino saber por qué campos se puede buscar. */}
               {!!debouncedSearch && (
-                <p className="empty-state__hint">{SEARCH_FIELDS_HINT}</p>
+                <p className="empty-state__hint">{searchHint}</p>
               )}
             </div>
           ) : (
@@ -1403,7 +1414,7 @@ export default function UsersModule(props: UsersModuleProps) {
                     </span>
                   </th>
                   {showDebtColumns && (
-                    <th className="table-cell--nowrap">Expediente</th>
+                    <th className="table-cell--nowrap">{numberLabel}</th>
                   )}
                   {showDebtColumns && <th>Clases inscritas</th>}
                   {!showDebtColumns && <th>Email</th>}

@@ -268,7 +268,7 @@ export default function EnrollmentSection({
                 <UserAutocomplete
                   role="student"
                   excludeIds={enrolledIds}
-                  placeholder="Buscar alumno por nombre, correo o expediente"
+                  placeholder="Buscar alumno por nombre, correo o no. estudiante"
                   ariaLabel="Buscar alumno"
                   autoFocus
                   onSelect={handlePickStudent}

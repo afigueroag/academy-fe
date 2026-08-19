@@ -21,7 +21,6 @@ export default function Students() {
       editTitle="Editar Estudiante"
       viewTitle="Detalles del Estudiante"
       showDebtColumns
-      searchPlaceholder="Buscar por nombre, correo o expediente"
       courseFilter={courseFilter}
       onCourseFilterChange={setCourseFilter}
       debtFilter={debtFilter}

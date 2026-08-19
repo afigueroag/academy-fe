@@ -366,7 +366,7 @@ export default function AttendanceSheet({
                       role="instructor"
                       excludeIds={excludeForAdd}
                       onSelect={handleAddStaff}
-                      placeholder="Instructor por nombre, correo o expediente"
+                      placeholder="Instructor por nombre, correo o no. instructor"
                       ariaLabel="Buscar instructor"
                     />
                   </div>

@@ -411,8 +411,8 @@ export default function TransactionForm(props: TransactionFormProps) {
               }}
               placeholder={
                 isExpense
-                  ? 'Buscar instructor por nombre, correo o expediente'
-                  : 'Buscar estudiante por nombre, correo o expediente'
+                  ? 'Buscar instructor por nombre, correo o no. instructor'
+                  : 'Buscar estudiante por nombre, correo o no. estudiante'
               }
             />
           )

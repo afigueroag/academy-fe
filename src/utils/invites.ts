@@ -67,8 +67,10 @@ export function emailTakenMessage(err: unknown): string | null {
  * `uq_academy_role_consecutive` de la base.
  *
  * El texto es nuestro y no el del backend porque aprovecha al dueño, que es el
- * dato accionable y que el mensaje del servidor no da masticado. Ya usamos su
- * misma palabra ("expediente"), así que las dos redacciones no se contradicen.
+ * dato accionable y que el mensaje del servidor no da masticado. Habla de "ese
+ * número" y no de "no. estudiante"/"no. instructor" porque el correlativo es
+ * único **por academia**: el dueño puede ser de otro rol que el de la ficha que
+ * se está editando (el backend lo llama "expediente" en sus propios mensajes).
  */
 export function consecutiveTakenMessage(err: unknown): string | null {
   if (!(err instanceof ApiError)) return null;
@@ -83,12 +85,12 @@ export function consecutiveTakenMessage(err: unknown): string | null {
   }
 
   const owner = conflictUser(err);
-  if (!owner) return 'Ese expediente ya lo tiene otro usuario de la academia.';
+  if (!owner) return 'Ese número ya lo tiene otro usuario de la academia.';
   const name = `${owner.first_name} ${owner.last_name}`;
   // El dueño puede ser una ficha archivada: no sale en el listado, así que sin
-  // decirlo el expediente parece libre y el error, un misterio. Se nombra dónde
+  // decirlo el número parece libre y el error, un misterio. Se nombra dónde
   // encontrarla, que es la salida real.
   return owner.is_active === false
-    ? `Ese expediente lo tiene ${name}, una ficha eliminada: búscala en la pestaña "Eliminados" para reactivarla o liberar el número.`
-    : `Ese expediente ya lo tiene ${name}.`;
+    ? `Ese número lo tiene ${name}, una ficha eliminada: búscala en la pestaña "Eliminados" para reactivarla o liberar el número.`
+    : `Ese número ya lo tiene ${name}.`;
 }

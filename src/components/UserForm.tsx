@@ -16,7 +16,7 @@ import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
 import { hasStudentView, labelUserRole } from '../utils/roles';
 import { consecutiveTakenMessage, emailTakenMessage } from '../utils/invites';
-import { entryYear } from '../utils/users';
+import { entryYear, userNumberLabel } from '../utils/users';
 import UserDocumentsSection from './UserDocumentsSection';
 import StudentDiscountsSection from './StudentDiscountsSection';
 import StudentExtraFields, {
@@ -182,9 +182,10 @@ export default function UserForm(props: UserFormProps) {
       ? ['instructor', 'instructor_student']
       : ['student', 'instructor_student'];
 
-  // "Expediente" es como se llama en la academia y en la guía de terminología
-  // del backend: es el correlativo en papel, no el `id` de la base.
-  const consecutiveLabel = 'Expediente';
+  // El correlativo en papel, no el `id` de la base. La etiqueta sigue al rol
+  // elegido: al pasar a instructor_student el número no cambia, pero deja de
+  // ser "de estudiante" y pasa a nombrarse en neutro.
+  const consecutiveLabel = userNumberLabel(effectiveRole);
 
   const isStudent = props.role === 'student';
   const isStudentCreate = mode === 'create' && isStudent;
