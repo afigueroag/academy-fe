@@ -8,6 +8,7 @@ import TransactionForm from '../components/TransactionForm';
 import TransactionDetails from '../components/TransactionDetails';
 import RegisterPaymentForm from '../components/RegisterPaymentForm';
 import RecurringForm from '../components/RecurringForm';
+import Paginator from '../components/Paginator';
 import { useAuth } from '../auth';
 import {
   ApiError,
@@ -48,13 +49,14 @@ import { formatMoney } from '../utils/money';
 import {
   categoriesForKind,
   labelPaymentMethod,
+  labelRecurringState,
   labelTransactionCategory,
   labelTransactionFrequency,
 } from '../utils/salesLabels';
 
 type Tab = 'transacciones' | 'recurrentes';
 type StatusFilter = TransactionStatus | 'all';
-type ActiveFilter = 'true' | 'false' | 'all';
+type ActiveFilter = 'true' | 'false';
 
 type PanelState =
   | { kind: 'create' }
@@ -66,11 +68,15 @@ type PanelState =
   | null;
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Todas' },
-  { value: 'pending', label: 'Pendientes' },
-  { value: 'paid', label: 'Pagadas' },
-  { value: 'scheduled', label: 'Programadas' },
-  { value: 'cancelled', label: 'Canceladas' },
+  // "Todas" ya no incluye las anuladas: sin `status`, el backend devuelve
+  // scheduled + pending + paid. Y `status=cancelled` es excluyente (solo
+  // anuladas), así que esto tiene que ser un selector, nunca una casilla que
+  // sume al conjunto actual.
+  { value: 'all', label: 'Todos menos anulados' },
+  { value: 'pending', label: 'Por pagar' },
+  { value: 'paid', label: 'Pagados' },
+  { value: 'scheduled', label: 'Programados' },
+  { value: 'cancelled', label: 'Anulados' },
 ];
 
 const PAYMENT_OPTIONS: PaymentMethod[] = [
@@ -91,11 +97,21 @@ const FREQUENCY_OPTIONS: TransactionFrequency[] = [
   'one_time',
 ];
 
+// `active` es booleano con default `true` en el backend: o activas, o
+// canceladas. No existe "tráeme las dos", así que tampoco puede haber un
+// "Todos" que prometa lo que no se puede pedir.
 const ACTIVE_FILTERS: { value: ActiveFilter; label: string }[] = [
   { value: 'true', label: 'Activos' },
-  { value: 'false', label: 'Inactivos' },
-  { value: 'all', label: 'Todos' },
+  { value: 'false', label: 'Cancelados' },
 ];
+
+// Tamaño de página de las dos listas. Mismo criterio que el módulo de usuarios;
+// el backend acepta de 1 a 200 y responde 422 por encima.
+const PAGE_SIZE = 100;
+
+// Tope por petición al recorrer TODOS los recurrentes activos para los KPIs.
+// Es el máximo que acepta el backend, así que minimiza el número de vueltas.
+const MAX_LIMIT = 200;
 
 const MONTHLY_FACTOR: Record<TransactionFrequency, number> = {
   weekly: 4,
@@ -232,6 +248,9 @@ export default function Gastos() {
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  // Página actual (base 0) y total con los filtros aplicados (X-Total-Count).
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
 
   // Recurring tab state
   const [recurringList, setRecurringList] = useState<RecurringTransactionRead[]>(
@@ -242,6 +261,8 @@ export default function Gastos() {
   >([]);
   const [recurringLoading, setRecurringLoading] = useState(false);
   const [recurringError, setRecurringError] = useState<string | null>(null);
+  const [recPage, setRecPage] = useState(0);
+  const [recTotal, setRecTotal] = useState(0);
   const [recActive, setRecActive] = useState<ActiveFilter>('true');
   const [recSearch, setRecSearch] = useState('');
   const [recDebouncedSearch, setRecDebouncedSearch] = useState('');
@@ -283,47 +304,79 @@ export default function Gastos() {
     return () => window.clearTimeout(t);
   }, [recSearch]);
 
+  // Contadores de petición: una respuesta que llega tarde (cambió el filtro
+  // mientras viajaba) no debe pintar filas viejas sobre las nuevas. Pasa de
+  // verdad al cambiar de filtro desde una página > 0: el reset a la página 0 se
+  // aplica en el render siguiente, así que salen dos peticiones y la primera
+  // puede contestar de última.
+  const listSeq = useRef(0);
+  const recSeq = useRef(0);
+
+  // Un solo objeto de filtros para el listado y para el resumen: son los mismos
+  // parámetros y los totales de la cabecera tienen que describir exactamente las
+  // filas que se están viendo. Manteniéndolos en dos sitios se desalineaban.
+  const filters = useMemo(
+    () => ({
+      kind: 'expense' as const,
+      status: status === 'all' ? undefined : status,
+      category: category || undefined,
+      payment_method: paymentMethod || undefined,
+      search: debouncedSearch || undefined,
+      from_date: fromDate || undefined,
+      to_date: toDate || undefined,
+    }),
+    [status, category, paymentMethod, debouncedSearch, fromDate, toDate],
+  );
+
   const fetchList = useCallback(async () => {
+    const seq = ++listSeq.current;
     setLoading(true);
     setListError(null);
     try {
       const data = await listTransactions({
-        kind: 'expense',
-        status: status === 'all' ? undefined : status,
-        category: category || undefined,
-        payment_method: paymentMethod || undefined,
-        search: debouncedSearch || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        ...filters,
+        skip: page * PAGE_SIZE,
+        limit: PAGE_SIZE,
       });
-      setTransactions(data);
+      if (seq !== listSeq.current) return;
+      setTransactions(data.items);
+      setTotal(data.total);
+      // La página se quedó fuera de rango (p. ej. se borró la última fila de la
+      // última página): retroceder en vez de mostrar una lista vacía.
+      if (data.items.length === 0 && page > 0) setPage((n) => Math.max(0, n - 1));
     } catch (err) {
+      if (seq !== listSeq.current) return;
       const message =
         err instanceof ApiError
           ? err.message
           : 'No se pudieron cargar los gastos.';
       setListError(message);
       setTransactions([]);
+      setTotal(0);
     } finally {
-      setLoading(false);
+      // Solo la petición vigente apaga el spinner: si lo apagara la que llegó
+      // tarde, la lista parpadearía a "listo" con la nueva aún en vuelo.
+      if (seq === listSeq.current) setLoading(false);
     }
-  }, [status, category, paymentMethod, debouncedSearch, fromDate, toDate]);
+  }, [filters, page]);
+
+  // Cualquier cambio de filtro invalida la página en la que se estaba: la 3 de
+  // un listado ya no es la 3 del siguiente.
+  useEffect(() => {
+    setPage(0);
+  }, [filters]);
 
   const fetchSummary = useCallback(async () => {
     try {
-      const data = await getTransactionsSummary({
-        kind: 'expense',
-        category: category || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
-      });
+      const data = await getTransactionsSummary(filters);
       setSummary(data);
     } catch {
       setSummary(null);
     }
-  }, [category, fromDate, toDate]);
+  }, [filters]);
 
   const fetchRecurring = useCallback(async () => {
+    const seq = ++recSeq.current;
     setRecurringLoading(true);
     setRecurringError(null);
     try {
@@ -331,30 +384,57 @@ export default function Gastos() {
         kind: 'expense',
         category: recCategory || undefined,
         frequency: recFrequency || undefined,
-        active: recActive === 'all' ? undefined : recActive === 'true',
+        active: recActive === 'true',
         search: recDebouncedSearch || undefined,
+        skip: recPage * PAGE_SIZE,
+        limit: PAGE_SIZE,
       });
-      setRecurringList(data);
+      if (seq !== recSeq.current) return;
+      setRecurringList(data.items);
+      setRecTotal(data.total);
+      if (data.items.length === 0 && recPage > 0)
+        setRecPage((n) => Math.max(0, n - 1));
     } catch (err) {
+      if (seq !== recSeq.current) return;
       const message =
         err instanceof ApiError
           ? err.message
           : 'No se pudieron cargar los gastos recurrentes.';
       setRecurringError(message);
       setRecurringList([]);
+      setRecTotal(0);
     } finally {
-      setRecurringLoading(false);
+      if (seq === recSeq.current) setRecurringLoading(false);
     }
+  }, [recCategory, recFrequency, recActive, recDebouncedSearch, recPage]);
+
+  useEffect(() => {
+    setRecPage(0);
   }, [recCategory, recFrequency, recActive, recDebouncedSearch]);
 
+  // Los KPIs suman importes de TODOS los recurrentes activos, no de una página,
+  // así que aquí sí hay que recorrer el listado entero. Se pide en tandas del
+  // máximo que acepta el backend (antes se pedía `limit: 1000`, que hoy sería un
+  // 422) y se corta con el total del header.
   const fetchRecurringActive = useCallback(async () => {
     try {
-      const data = await listRecurringTransactions({
-        kind: 'expense',
-        active: true,
-        limit: 1000,
-      });
-      setRecurringActive(data);
+      const all: RecurringTransactionRead[] = [];
+      let skip = 0;
+      for (;;) {
+        const data = await listRecurringTransactions({
+          kind: 'expense',
+          active: true,
+          skip,
+          limit: MAX_LIMIT,
+        });
+        all.push(...data.items);
+        skip += data.items.length;
+        // Corta por página incompleta y NO por `skip >= data.total`: si el
+        // header no llegó, `total` cae a lo ya leído y el corte por total se
+        // cumpliría siempre, dejando los KPIs con solo la primera tanda.
+        if (data.items.length < MAX_LIMIT) break;
+      }
+      setRecurringActive(all);
     } catch {
       setRecurringActive([]);
     }
@@ -673,7 +753,12 @@ export default function Gastos() {
             ) : (
               <>
                 <div className="summary-card">
-                  <p className="summary-card__label">Egresos totales</p>
+                  {/* `total` suma también lo `scheduled` (cargos futuros ya
+                      generados, hasta dos meses): decir "Egresos totales" a
+                      secas se lee como dinero que salió y no lo es. */}
+                  <p className="summary-card__label">
+                    Comprometido (incl. programado)
+                  </p>
                   <div className="summary-card__value">
                     {summary === null ? '—' : formatMoney(summary.total, currency)}
                   </div>
@@ -685,13 +770,13 @@ export default function Gastos() {
                   </div>
                 </div>
                 <div className="summary-card">
-                  <p className="summary-card__label">Pagos realizados</p>
+                  <p className="summary-card__label">Pagado</p>
                   <div className="summary-card__value">
                     {summary === null ? '—' : formatMoney(summary.paid, currency)}
                   </div>
                 </div>
                 <div className="summary-card">
-                  <p className="summary-card__label">Pendientes</p>
+                  <p className="summary-card__label">Por pagar</p>
                   <div className="summary-card__value">
                     {summary === null
                       ? '—'
@@ -744,23 +829,28 @@ export default function Gastos() {
                   </option>
                 ))}
               </select>
-              <div className="tab-group" role="tablist" aria-label="Estado">
-                {STATUS_FILTERS.map((f) => (
-                  <button
-                    key={f.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={status === f.value}
-                    className={
-                      'tab-group__item' +
-                      (status === f.value ? ' tab-group__item--active' : '')
-                    }
-                    onClick={() => setStatus(f.value)}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+              {/* Con token de recepción el backend acota lista y summary a
+                  `pending`: es alcance por rol, no un filtro que el front pueda
+                  apagar. Ofrecer los estados sería ofrecer botones inertes. */}
+              {!isReceptionist && (
+                <div className="tab-group" role="tablist" aria-label="Estado">
+                  {STATUS_FILTERS.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={status === f.value}
+                      className={
+                        'tab-group__item' +
+                        (status === f.value ? ' tab-group__item--active' : '')
+                      }
+                      onClick={() => setStatus(f.value)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="filter-bar">
               <input
@@ -822,6 +912,17 @@ export default function Gastos() {
               </div>
             )}
 
+            {!loading && !listError && (
+              <Paginator
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                shown={transactions.length}
+                position="top"
+                onChange={setPage}
+              />
+            )}
+
             <div className="table-wrapper">
                 {loading ? (
                   <div className="loading-row">
@@ -838,7 +939,17 @@ export default function Gastos() {
                   <table className="users-table">
                     <thead>
                       <tr>
-                        <th className="table-cell--nowrap">Fecha</th>
+                        {/* Orden fijo del backend: por fecha de la
+                            transacción, de la más reciente a la más antigua. */}
+                        <th className="table-cell--nowrap" aria-sort="descending">
+                          Fecha
+                          <span
+                            className="table-sort"
+                            title="Orden fijo del listado"
+                          >
+                            ↓ recientes
+                          </span>
+                        </th>
                         <th>Proveedor / Beneficiario</th>
                         <th>Categoría</th>
                         <th>Descripción</th>
@@ -960,6 +1071,16 @@ export default function Gastos() {
                   </table>
                 )}
               </div>
+
+            {!loading && !listError && (
+              <Paginator
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                shown={transactions.length}
+                onChange={setPage}
+              />
+            )}
           </section>
         </>
       ) : (
@@ -1073,6 +1194,17 @@ export default function Gastos() {
               </div>
             )}
 
+            {!recurringLoading && !recurringError && (
+              <Paginator
+                page={recPage}
+                pageSize={PAGE_SIZE}
+                total={recTotal}
+                shown={recurringList.length}
+                position="top"
+                onChange={setRecPage}
+              />
+            )}
+
             <div className="table-wrapper">
               {recurringLoading ? (
                 <div className="loading-row">
@@ -1101,6 +1233,7 @@ export default function Gastos() {
                       </th>
                       <th className="table-cell--nowrap">Inicio</th>
                       <th className="table-cell--nowrap">Fin</th>
+                      <th>Estado</th>
                       {isAdmin && (
                         <th
                           className="table-cell--nowrap"
@@ -1145,6 +1278,16 @@ export default function Gastos() {
                           <td className="table-cell--nowrap">
                             {formatDateShort(r.end_date)}
                           </td>
+                          <td>
+                            {(() => {
+                              const st = labelRecurringState(r);
+                              return (
+                                <span className={`badge ${st.className}`}>
+                                  {st.label}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           {isAdmin && (
                             <td
                               className="table-cell--nowrap"
@@ -1179,6 +1322,16 @@ export default function Gastos() {
                 </table>
               )}
             </div>
+
+            {!recurringLoading && !recurringError && (
+              <Paginator
+                page={recPage}
+                pageSize={PAGE_SIZE}
+                total={recTotal}
+                shown={recurringList.length}
+                onChange={setRecPage}
+              />
+            )}
           </section>
         </>
       )}

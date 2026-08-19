@@ -13,11 +13,14 @@ const KIND: Record<TransactionKind, string> = {
   expense: 'Gasto',
 };
 
+// "Anulada" y no "Eliminada"/"Cancelada": la transacción sigue existiendo y se
+// puede consultar pidiéndola por id. "Cancelada" se reserva para las
+// recurrentes, donde sí es un borrado suave (ver `labelRecurringState`).
 const STATUS: Record<TransactionStatus, string> = {
   scheduled: 'Programada',
   pending: 'Pendiente',
   paid: 'Pagada',
-  cancelled: 'Cancelada',
+  cancelled: 'Anulada',
 };
 
 const CATEGORY: Record<TransactionCategory, string> = {
@@ -152,4 +155,21 @@ export const REFERENCE_PAYMENT_METHODS: PaymentMethod[] = [
 
 export function requiresPaymentReference(m: PaymentMethod | null): boolean {
   return m !== null && REFERENCE_PAYMENT_METHODS.includes(m);
+}
+
+/**
+ * Estado de una recurrente para pintar en la tabla. Son tres, no dos:
+ * `is_active` solo dice si alguien la canceló a mano, **no** si sigue generando
+ * cargos. Una con `end_date` pasada sigue llegando con `is_active: true`, y el
+ * backend no distingue ese caso: lo hace el front comparando la fecha.
+ */
+export function labelRecurringState(r: {
+  is_active: boolean;
+  end_date?: string | null;
+}): { label: string; className: string } {
+  if (!r.is_active) return { label: 'Cancelado', className: 'badge--cancelled' };
+  const today = new Date().toISOString().slice(0, 10);
+  if (r.end_date && r.end_date < today)
+    return { label: 'Terminado', className: 'badge--completed' };
+  return { label: 'Activo', className: 'badge--active' };
 }

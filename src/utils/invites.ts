@@ -57,3 +57,38 @@ export function emailTakenMessage(err: unknown): string | null {
   if (err.code) return err.code === 'email_taken' ? err.message : null;
   return /correo/i.test(err.message) ? err.message : null;
 }
+
+/**
+ * Mensaje del número (`role_consecutive`) repetido, listo para pintar en el
+ * campo, o `null` si el error es otro. El candado vive en el mismo
+ * PATCH /users/{id} que el correo, y responde 409 con
+ * `code: 'role_consecutive_taken'` — con `user` cuando el backend identificó al
+ * dueño (la comprobación previa) y sin él cuando lo cazó la restricción
+ * `uq_academy_role_consecutive` de la base.
+ *
+ * El texto es nuestro y no el del backend porque aprovecha al dueño, que es el
+ * dato accionable y que el mensaje del servidor no da masticado. Ya usamos su
+ * misma palabra ("expediente"), así que las dos redacciones no se contradicen.
+ */
+export function consecutiveTakenMessage(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  // 422 de validación (entero < 1, tipo incorrecto): ya viene por campo.
+  if (err.fieldErrors.role_consecutive) return err.fieldErrors.role_consecutive;
+  if (err.status !== 409) return null;
+  if (err.code) {
+    if (err.code !== 'role_consecutive_taken') return null;
+  } else if (!/expediente|n[úu]mero|consecutiv/i.test(err.message)) {
+    // 409 sin `code` (despliegue viejo): respaldo por texto, igual que el correo.
+    return null;
+  }
+
+  const owner = conflictUser(err);
+  if (!owner) return 'Ese expediente ya lo tiene otro usuario de la academia.';
+  const name = `${owner.first_name} ${owner.last_name}`;
+  // El dueño puede ser una ficha archivada: no sale en el listado, así que sin
+  // decirlo el expediente parece libre y el error, un misterio. Se nombra dónde
+  // encontrarla, que es la salida real.
+  return owner.is_active === false
+    ? `Ese expediente lo tiene ${name}, una ficha eliminada: búscala en la pestaña "Eliminados" para reactivarla o liberar el número.`
+    : `Ese expediente ya lo tiene ${name}.`;
+}

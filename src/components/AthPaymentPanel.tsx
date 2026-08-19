@@ -85,12 +85,20 @@ export default function AthPaymentPanel({
           return;
         }
         if (tx.status === 'cancelled') {
-          setError('La transacción fue cancelada.');
+          setError('La transacción fue anulada.');
           setPhase('form');
           return;
         }
-      } catch {
-        // Errores transitorios de red durante el poll: se reintenta.
+      } catch (err) {
+        if (cancelled) return;
+        // 403 y 404 no son transitorios: desde que GET /transactions/{id} valida
+        // quién pregunta, insistir hasta el timeout solo alarga la espera.
+        if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+          setError('No se pudo consultar el estado del cobro.');
+          setPhase('form');
+          return;
+        }
+        // El resto (red, 5xx) sí puede ser pasajero: se reintenta.
       }
       if (cancelled) return;
       if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {

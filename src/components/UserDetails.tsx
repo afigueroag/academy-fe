@@ -134,12 +134,13 @@ export default function UserDetails({
     setRecurringLoading(true);
     setRecurringError(null);
     try {
+      // Son los recurrentes activos de UN alumno: caben de sobra en una página.
       const data = await listRecurringTransactions({
         kind: 'sale',
         user_id: user.id,
         active: true,
       });
-      setRecurringList(data);
+      setRecurringList(data.items);
     } catch (err) {
       const message =
         err instanceof ApiError

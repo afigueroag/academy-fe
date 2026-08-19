@@ -69,7 +69,11 @@ import {
 } from '../brand';
 import { formatMoney } from '../utils/money';
 import { formatDateTimeShort } from '../utils/dates';
-import { conflictCode, conflictUser } from '../utils/invites';
+import {
+  conflictCode,
+  conflictUser,
+  consecutiveTakenMessage,
+} from '../utils/invites';
 import { userNumber } from '../utils/users';
 import ConflictNotice from '../components/ConflictNotice';
 import Paginator from '../components/Paginator';
@@ -88,9 +92,8 @@ interface UsersModuleProps {
   showDebtColumns?: boolean;
   debtFilter?: Debt | null;
   onDebtFilterChange?: (d: Debt | null) => void;
-  // Texto del buscador. Cada módulo nombra su propio consecutivo ("N.º de
-  // estudiante", "N.º de instructor"); el resto de campos que cubre `search` va
-  // en SEARCH_FIELDS_HINT.
+  // Texto del buscador. El resto de campos que cubre `search` va en
+  // SEARCH_FIELDS_HINT, que es lo que se pinta al no haber resultados.
   searchPlaceholder?: string;
   // Filtro por clase inscrita. Si se pasa el handler, se muestra el selector con
   // las clases vigentes de la academia.
@@ -140,7 +143,9 @@ const DELETED_FILTER: { value: Filter; label: string } = {
 // (`entry_year`) — cada uno por separado, no por el número compuesto
 // "2025-839" que pinta la tabla.
 const SEARCH_FIELDS_HINT =
-  'La búsqueda cubre nombre, apellido, correo, número y año de ingreso.';
+  'La búsqueda cubre nombre, apellido, correo, expediente y año de ingreso. ' +
+  'El expediente y el año se buscan por coincidencia exacta: escribir 2024 ' +
+  'devuelve a quienes ingresaron ese año y, si existe, al del expediente 2024.';
 
 // Tamaño de página. El backend acepta de 1 a 200 y responde 422 por encima.
 const PAGE_SIZE = 100;
@@ -361,7 +366,7 @@ export default function UsersModule(props: UsersModuleProps) {
     editTitle,
     viewTitle,
     showDebtColumns = false,
-    searchPlaceholder = 'Buscar por nombre, correo o N.º',
+    searchPlaceholder = 'Buscar por nombre, correo o expediente',
     debtFilter = null,
     onDebtFilterChange,
     courseFilter = null,
@@ -482,7 +487,13 @@ export default function UsersModule(props: UsersModuleProps) {
     // en vez de un setter no dispara una petición por render.
   }, [showCourseFilter]);
 
+  // Mismo contador de petición que en Ventas/Gastos: al cambiar de filtro desde
+  // una página > 0 salen dos peticiones (la vieja con el `skip` anterior y la
+  // nueva tras el reset), y la primera puede contestar de última.
+  const listSeq = useRef(0);
+
   const fetchList = useCallback(async () => {
+    const seq = ++listSeq.current;
     setLoading(true);
     setListError(null);
     try {
@@ -500,6 +511,7 @@ export default function UsersModule(props: UsersModuleProps) {
         skip: page * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
+      if (seq !== listSeq.current) return;
       setUsers(data.items);
       setTotal(data.total);
       // La página se quedó fuera de rango (p. ej. se borró la última fila de la
@@ -508,6 +520,7 @@ export default function UsersModule(props: UsersModuleProps) {
         setPage((p) => Math.max(0, p - 1));
       }
     } catch (err) {
+      if (seq !== listSeq.current) return;
       const message =
         err instanceof ApiError
           ? err.message
@@ -516,7 +529,7 @@ export default function UsersModule(props: UsersModuleProps) {
       setUsers([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === listSeq.current) setLoading(false);
     }
   }, [
     role,
@@ -973,7 +986,9 @@ export default function UsersModule(props: UsersModuleProps) {
     } catch (err) {
       if (err instanceof ApiError) {
         setPanelApiError(err);
-        setPanelError(err.message);
+        // El expediente repetido se pinta en su propio campo, nombrando a quien
+        // lo tiene; el aviso genérico repetiría el error sin ese dato.
+        setPanelError(consecutiveTakenMessage(err) ? null : err.message);
       } else {
         setPanelError('No se pudo actualizar el usuario.');
       }
@@ -1344,6 +1359,17 @@ export default function UsersModule(props: UsersModuleProps) {
           </div>
         )}
 
+        {!loading && !listError && (
+          <Paginator
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            shown={users.length}
+            position="top"
+            onChange={setPage}
+          />
+        )}
+
         <div className="table-wrapper">
           {loading ? (
             <div className="loading-row">
@@ -1367,9 +1393,17 @@ export default function UsersModule(props: UsersModuleProps) {
             <table className="users-table">
               <thead>
                 <tr>
-                  <th>{showDebtColumns ? 'Estudiante' : 'Nombre completo'}</th>
+                  {/* El backend ordena por apellido, nombre e id (ver api.ts) y
+                      el front no debe reordenar. Se anuncia en el encabezado
+                      para que la lista no parezca arbitraria. */}
+                  <th aria-sort="ascending">
+                    {showDebtColumns ? 'Estudiante' : 'Nombre completo'}
+                    <span className="table-sort" title="Orden fijo del listado">
+                      ↑ A–Z por apellido
+                    </span>
+                  </th>
                   {showDebtColumns && (
-                    <th className="table-cell--nowrap">Año / N.º</th>
+                    <th className="table-cell--nowrap">Expediente</th>
                   )}
                   {showDebtColumns && <th>Clases inscritas</th>}
                   {!showDebtColumns && <th>Email</th>}

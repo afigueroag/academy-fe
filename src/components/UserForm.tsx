@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
   AcademyMe,
   GroupPublic,
@@ -15,7 +15,8 @@ import GroupPicker from './GroupPicker';
 import { formatMoney, toCents } from '../utils/money';
 import { labelEnrollmentFeeMode } from '../utils/salesLabels';
 import { hasStudentView, labelUserRole } from '../utils/roles';
-import { emailTakenMessage } from '../utils/invites';
+import { consecutiveTakenMessage, emailTakenMessage } from '../utils/invites';
+import { entryYear } from '../utils/users';
 import UserDocumentsSection from './UserDocumentsSection';
 import StudentDiscountsSection from './StudentDiscountsSection';
 import StudentExtraFields, {
@@ -52,6 +53,31 @@ const MONTHS_ES = [
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Id del input de cada campo con error, para poder llevar al usuario hasta él
+// desde el resumen. El resumen vive junto al botón de guardar: el error bajo el
+// campo no sirve de nada si el campo quedó tres pantallas más arriba.
+const FIELD_IDS: Record<string, string> = {
+  first_name: 'uf-first',
+  last_name: 'uf-last',
+  role_consecutive: 'uf-consecutive',
+  email: 'uf-email',
+  tuition_amount: 'uf-tuition-amount',
+  tuition_billing_day: 'uf-tuition-bday',
+  tuition_start_date: 'uf-tuition-start',
+};
+
+// Orden en el que se listan los errores: el mismo del formulario, para que
+// bajar por la lista sea bajar por la pantalla.
+const FIELD_ORDER = [
+  'first_name',
+  'last_name',
+  'email',
+  'role_consecutive',
+  'tuition_amount',
+  'tuition_billing_day',
+  'tuition_start_date',
+];
+
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'credit_card', label: 'Tarjeta de crédito' },
   { value: 'debit_card', label: 'Tarjeta de débito' },
@@ -64,6 +90,9 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
 interface FormState {
   first_name: string;
   last_name: string;
+  // Solo en edición: el consecutivo del rol, como texto para poder dejarlo
+  // vacío mientras se escribe. Se valida y se convierte a entero al enviar.
+  role_consecutive: string;
   email: string;
   phone: string;
   address: string;
@@ -77,6 +106,7 @@ interface FormState {
 const EMPTY: FormState = {
   first_name: '',
   last_name: '',
+  role_consecutive: '',
   email: '',
   phone: '',
   address: '',
@@ -91,6 +121,7 @@ function fromUser(u: UserListRead): FormState {
   return {
     first_name: u.first_name,
     last_name: u.last_name,
+    role_consecutive: String(u.role_consecutive ?? ''),
     email: u.email ?? '',
     phone: u.phone ?? '',
     address: u.address ?? '',
@@ -151,6 +182,10 @@ export default function UserForm(props: UserFormProps) {
       ? ['instructor', 'instructor_student']
       : ['student', 'instructor_student'];
 
+  // "Expediente" es como se llama en la academia y en la guía de terminología
+  // del backend: es el correlativo en papel, no el `id` de la base.
+  const consecutiveLabel = 'Expediente';
+
   const isStudent = props.role === 'student';
   const isStudentCreate = mode === 'create' && isStudent;
   // ¿Mostrar campos de estudiante (grupos, datos extra, descuentos)? El híbrido
@@ -203,8 +238,13 @@ export default function UserForm(props: UserFormProps) {
     }
   }, [mode, mode === 'edit' ? props.user : null]);
 
+  // El resumen de errores, para llevarlo a la vista cuando el fallo no cuelga de
+  // ningún campo (un 500, por ejemplo) y no hay a dónde saltar.
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    if (apiError?.fieldErrors) {
+    if (!apiError) return;
+    if (apiError.fieldErrors) {
       setErrors((prev) => ({ ...prev, ...apiError.fieldErrors }));
     }
     // Correo repetido (es único en todo el sistema, no por academia): se marca
@@ -213,6 +253,26 @@ export default function UserForm(props: UserFormProps) {
     if (taken) {
       setErrors((prev) => ({ ...prev, email: taken }));
     }
+    // Mismo trato para el número repetido: el candado vive en el mismo PATCH,
+    // así que el error se marca en su campo en vez de cerrar el panel.
+    const numberTaken = consecutiveTakenMessage(apiError);
+    if (numberTaken) {
+      setErrors((prev) => ({ ...prev, role_consecutive: numberTaken }));
+    }
+    // El rechazo llega después de pulsar Guardar, con el botón a la vista y el
+    // campo culpable donde sea: hay que ir hasta él.
+    const serverKeys = [
+      ...Object.keys(apiError?.fieldErrors ?? {}),
+      ...(taken ? ['email'] : []),
+      ...(numberTaken ? ['role_consecutive'] : []),
+    ];
+    const firstServerKey = firstErrorKey(serverKeys.filter((k) => FIELD_IDS[k]));
+    if (firstServerKey) focusField(firstServerKey);
+    else
+      summaryRef.current?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      });
   }, [apiError]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
@@ -226,7 +286,51 @@ export default function UserForm(props: UserFormProps) {
     }
   };
 
-  const validate = (): boolean => {
+  const fieldLabels: Record<string, string> = {
+    first_name: 'Nombre',
+    last_name: 'Apellido',
+    email: 'Email',
+    role_consecutive: consecutiveLabel,
+    tuition_amount: 'Monto de la mensualidad',
+    tuition_billing_day: 'Día de cobro',
+    tuition_start_date: 'Inicio del cobro',
+  };
+
+  // Campos en falta, ordenados como aparecen en pantalla. Los que no conocemos
+  // (errores por campo que mande el backend) van al final con su clave.
+  const errorKeys = Object.keys(errors).filter((k) => errors[k]);
+  const summaryKeys = [
+    ...FIELD_ORDER.filter((k) => errorKeys.includes(k)),
+    ...errorKeys.filter((k) => !FIELD_ORDER.includes(k)),
+  ];
+
+  // El listado pinta el número prefijado con el año de ingreso ("2025-839"), y
+  // el campo solo edita la segunda mitad: la pista muestra cómo va quedando.
+  const consecutiveYear = mode === 'edit' ? entryYear(props.user) : null;
+  const consecutiveHint =
+    consecutiveYear && state.role_consecutive.trim()
+      ? `Se verá como ${consecutiveYear}-${state.role_consecutive.trim()}. No puede repetirse en la academia.`
+      : 'No puede repetirse dentro de la academia.';
+
+  // Lleva la vista y el foco al campo que falló. Sin esto, un error en un campo
+  // que quedó fuera de pantalla es indistinguible de "el botón no hace nada".
+  const focusField = (key: string) => {
+    const el = document.getElementById(FIELD_IDS[key] ?? '');
+    if (!el) return;
+    // Solo se desplaza si el campo no está ya a la vista: dar un salto cuando el
+    // campo se veía desde el principio desorienta más de lo que ayuda.
+    const box = el.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > window.innerHeight) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    el.focus({ preventScroll: true });
+  };
+
+  // Primer campo con error siguiendo el orden del formulario.
+  const firstErrorKey = (keys: string[]): string | undefined =>
+    FIELD_ORDER.find((k) => keys.includes(k)) ?? keys[0];
+
+  const collectErrors = (): Record<string, string> => {
     const next: Record<string, string> = {};
     if (!state.first_name.trim()) next.first_name = 'Requerido';
     if (!state.last_name.trim()) next.last_name = 'Requerido';
@@ -239,6 +343,13 @@ export default function UserForm(props: UserFormProps) {
     if (mode === 'edit' && !email && props.user.has_access) {
       next.email = 'No se puede quitar el correo de alguien que ya entra a la plataforma';
     }
+    if (mode === 'edit') {
+      const raw = state.role_consecutive.trim();
+      const n = Number(raw);
+      if (!raw) next.role_consecutive = 'Requerido';
+      else if (!Number.isInteger(n) || n < 1)
+        next.role_consecutive = 'Número entero mayor a cero';
+    }
     if (isStudentCreate && createTuition) {
       const amt = parseFloat(tuitionAmount);
       if (!tuitionAmount || Number.isNaN(amt) || amt <= 0) {
@@ -250,13 +361,19 @@ export default function UserForm(props: UserFormProps) {
       }
       if (!tuitionStartDate) next.tuition_start_date = 'Requerido';
     }
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    const found = collectErrors();
+    setErrors(found);
+    const keys = Object.keys(found);
+    if (keys.length > 0) {
+      const first = firstErrorKey(keys);
+      if (first) focusField(first);
+      return;
+    }
 
     if (mode === 'create') {
       const payload: UserCreate = {
@@ -294,6 +411,11 @@ export default function UserForm(props: UserFormProps) {
         ...(selectedRole !== (props.user.role ?? props.role)
           ? { role: selectedRole }
           : {}),
+        // Igual que el correo: solo viaja si cambió, para que un PATCH normal no
+        // choque contra el candado de números repetidos por reenviar el propio.
+        ...(Number(state.role_consecutive.trim()) !== props.user.role_consecutive
+          ? { role_consecutive: Number(state.role_consecutive.trim()) }
+          : {}),
         // Solo se manda si cambió: omitir la clave deja el correo intacto, y así
         // un PATCH normal nunca arriesga tocarlo. Vacío viaja como `null`, nunca
         // como cadena vacía (el backend la rechaza).
@@ -316,12 +438,9 @@ export default function UserForm(props: UserFormProps) {
 
   return (
     <form id="user-form" onSubmit={handleSubmit} noValidate>
-      {serverError && (
-        <div className="alert" role="alert">
-          {serverError}
-        </div>
-      )}
-
+      {/* El aviso de error vive solo junto a los botones, al final: es donde
+          está el usuario cuando pulsa Guardar. Aquí arriba salía además del de
+          abajo, y un fallo genérico se leía dos veces en el mismo panel. */}
       <div className="field--row">
         <div className="field">
           <label className="field__label" htmlFor="uf-first">
@@ -469,25 +588,51 @@ export default function UserForm(props: UserFormProps) {
       </div>
 
       {mode === 'edit' && (
-        <div className="field">
-          <label className="field__label" htmlFor="uf-role">
-            Rol
-          </label>
-          <select
-            id="uf-role"
-            className="select"
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-          >
-            {roleOptions.map((r) => (
-              <option key={r} value={r}>
-                {labelUserRole(r)}
-              </option>
-            ))}
-          </select>
-          <span className="field__hint" style={{ color: 'var(--color-text-muted)' }}>
-            El híbrido imparte clases y a la vez es alumno.
-          </span>
+        <div className="field--row">
+          <div className="field">
+            <label className="field__label" htmlFor="uf-role">
+              Rol
+            </label>
+            <select
+              id="uf-role"
+              className="select"
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+            >
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>
+                  {labelUserRole(r)}
+                </option>
+              ))}
+            </select>
+            <span
+              className="field__hint"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              El híbrido imparte clases y a la vez es alumno.
+            </span>
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor="uf-consecutive">
+              {consecutiveLabel}
+            </label>
+            <input
+              id="uf-consecutive"
+              className="input"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={state.role_consecutive}
+              onChange={(e) => set('role_consecutive', e.target.value)}
+              aria-invalid={!!errors.role_consecutive}
+            />
+            <span className="field__hint">{consecutiveHint}</span>
+            <span className="field__error">
+              {errors.role_consecutive ?? ''}
+            </span>
+          </div>
         </div>
       )}
 
@@ -682,6 +827,37 @@ export default function UserForm(props: UserFormProps) {
 
       {mode === 'edit' && (
         <UserDocumentsSection userId={props.user.id} editable />
+      )}
+
+      {/* Resumen pegado al botón: es donde está el usuario cuando pulsa Guardar,
+          y el error del campo puede haber quedado fuera de pantalla. */}
+      {(summaryKeys.length > 0 || serverError) && (
+        <div
+          className="alert"
+          role="alert"
+          ref={summaryRef}
+          style={{ marginTop: 16 }}
+        >
+          <strong>No se pudo guardar.</strong>
+          {summaryKeys.length > 0 ? (
+            <ul className="alert__list">
+              {summaryKeys.map((k) => (
+                <li key={k}>
+                  <button
+                    type="button"
+                    className="alert__field"
+                    onClick={() => focusField(k)}
+                  >
+                    {fieldLabels[k] ?? k}
+                  </button>
+                  : {errors[k]}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span> {serverError}</span>
+          )}
+        </div>
       )}
 
       <div className="form-actions form-actions--end" style={{ marginTop: 8 }}>

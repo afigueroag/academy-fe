@@ -57,6 +57,7 @@ import type {
   ListTransactionsParams,
   ListUsersParams,
   PasswordChange,
+  RecurringListPage,
   PaymentAccountCreate,
   PaymentAccountRead,
   PaymentAccountTest,
@@ -69,6 +70,7 @@ import type {
   SessionCreate,
   Token,
   TransactionCreate,
+  TransactionListPage,
   TransactionRead,
   TransactionSummary,
   TransactionSummaryParams,
@@ -282,6 +284,21 @@ export async function updateMe(patch: UserUpdate): Promise<UserMe> {
 }
 
 /**
+ * Total con los filtros aplicados, leído de `X-Total-Count`. Ojo con el atajo
+ * `Number(res.headers.get(...))`: si el header no llega, `Number(null)` es 0 y
+ * el listado se quedaría "vacío" con datos en la mano.
+ *
+ * El respaldo es `skip + items.length`, no solo el largo de la página: en la
+ * página 2 un fallback de 100 haría que el paginador calculara una sola página,
+ * se ocultara entero y dejara al usuario encerrado sin forma de volver.
+ */
+function totalFromHeader(res: Response, skip: number, shown: number): number {
+  const raw = res.headers.get('X-Total-Count');
+  const total = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isFinite(total) && total >= 0 ? total : skip + shown;
+}
+
+/**
  * Listado paginado. `limit` va de 1 a 200 (default 100 en el backend); pasarse
  * responde 422. El total viene en el header `X-Total-Count` con los filtros
  * aplicados e ignorando `skip`/`limit`.
@@ -294,9 +311,11 @@ export async function updateMe(patch: UserUpdate): Promise<UserMe> {
  * lista se ve igual— en vez de mostrar "0 resultados" sobre datos que sí
  * llegaron.
  *
- * El listado viene ordenado por apellido, nombre e id, y devuelve `UserListRead`
- * (sin `academy` ni `pending_transactions`). **No reordenar en cliente**: solo
- * afectaría a la página visible y daría la impresión de que faltan registros.
+ * El listado viene ordenado por apellido, nombre e id (confirmado contra el
+ * `order_by` del backend), y devuelve `UserListRead` (sin `academy` ni
+ * `pending_transactions`). El orden es fijo: no hay parámetro para cambiarlo y
+ * **no se reordena en cliente**, que solo afectaría a la página visible y daría
+ * la impresión de que faltan registros.
  */
 export async function listUsers(
   params: ListUsersParams,
@@ -316,14 +335,7 @@ export async function listUsers(
   const res = await authFetch(`/users?${q.toString()}`);
   if (!res.ok) throw await parseError(res);
   const items = (await res.json()) as UserListRead[];
-  // Ojo con el atajo `Number(res.headers.get(...))`: si el header no llega,
-  // `Number(null)` es 0 y el listado se quedaría "vacío" con datos en la mano.
-  const raw = res.headers.get('X-Total-Count');
-  const total = raw === null || raw.trim() === '' ? NaN : Number(raw);
-  return {
-    items,
-    total: Number.isFinite(total) && total >= 0 ? total : items.length,
-  };
+  return { items, total: totalFromHeader(res, params.skip ?? 0, items.length) };
 }
 
 export async function getUser(id: number): Promise<UserRead> {
@@ -689,25 +701,26 @@ function txParams(params: ListTransactionsParams): string {
 export async function getTransactionsSummary(
   params: TransactionSummaryParams = {},
 ): Promise<TransactionSummary> {
-  const q = new URLSearchParams();
-  if (params.kind) q.set('kind', params.kind);
-  if (params.category) q.set('category', params.category);
-  if (params.user_id !== undefined) q.set('user_id', String(params.user_id));
-  if (params.from_date) q.set('from_date', params.from_date);
-  if (params.to_date) q.set('to_date', params.to_date);
-  const qs = q.toString();
+  // Mismo serializador que el listado: el resumen acepta los mismos filtros y
+  // `txParams` ignora `skip`/`limit` si no vienen, que es justo el caso.
+  const qs = txParams(params);
   const res = await authFetch(`/transactions/summary${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as TransactionSummary;
 }
 
+/**
+ * Listado paginado de transacciones. Igual que `listUsers`: el cuerpo es la
+ * página y el total con los filtros aplicados viaja en `X-Total-Count`.
+ */
 export async function listTransactions(
   params: ListTransactionsParams = {},
-): Promise<TransactionRead[]> {
+): Promise<TransactionListPage> {
   const qs = txParams(params);
   const res = await authFetch(`/transactions${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw await parseError(res);
-  return (await res.json()) as TransactionRead[];
+  const items = (await res.json()) as TransactionRead[];
+  return { items, total: totalFromHeader(res, params.skip ?? 0, items.length) };
 }
 
 export async function getTransaction(id: number): Promise<TransactionRead> {
@@ -841,7 +854,7 @@ export async function createPayment(
 
 export async function listRecurringTransactions(
   params: ListRecurringTransactionsParams = {},
-): Promise<RecurringTransactionRead[]> {
+): Promise<RecurringListPage> {
   const q = new URLSearchParams();
   if (params.kind) q.set('kind', params.kind);
   if (params.category) q.set('category', params.category);
@@ -856,7 +869,8 @@ export async function listRecurringTransactions(
   const qs = q.toString();
   const res = await authFetch(`/recurring-transactions${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw await parseError(res);
-  return (await res.json()) as RecurringTransactionRead[];
+  const items = (await res.json()) as RecurringTransactionRead[];
+  return { items, total: totalFromHeader(res, params.skip ?? 0, items.length) };
 }
 
 export async function getRecurringTransaction(

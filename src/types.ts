@@ -401,6 +401,13 @@ export interface UserUpdate {
   // Cambiar el rol al editar (student/instructor ↔ instructor_student). El
   // backend ya lo acepta. Opcional: si no se envía, el rol no cambia.
   role?: UserRole;
+  // Número de la persona (el "839" de "2025-839"). Editable desde la ficha:
+  // entero >= 1 y único **por academia**, no por rol — el mismo número no puede
+  // estar a la vez en un alumno y en un instructor. Si ya lo tiene alguien, el
+  // backend responde 409 `role_consecutive_taken` (ver
+  // `consecutiveTakenMessage`). Solo lo mueven admin y recepción.
+  // Omitir la clave = no se toca.
+  role_consecutive?: number;
   // Correo editable desde la ficha. No manda ningún correo ni cambia `status`
   // (para eso está POST /users/{id}/invite). Omitir la clave = no se toca.
   // `null` vacía el correo, pero el backend responde 422 si el usuario ya inicia
@@ -471,6 +478,11 @@ export type UserConflictCode =
   | 'user_deleted'
   // Restore sobre una ficha que ya estaba activa: la pantalla iba atrasada.
   | 'user_not_deleted'
+  // El número (`role_consecutive`) ya lo tiene otra ficha de la academia. Llega
+  // con 409 desde PATCH /users/{id}, con `user` cuando el backend pudo
+  // identificar al dueño (puede ser una ficha archivada, invisible en el
+  // listado). Ojo: el candado es por academia, no por rol.
+  | 'role_consecutive_taken'
   // Invitar a alguien sin correo y sin mandar uno. Ojo: llega con 422, no 409.
   | 'email_required';
 
@@ -685,7 +697,27 @@ export type RecurringTransactionUpdate = RecurringTransactionCreate;
 
 export interface RecurringTransactionRead extends RecurringTransactionCreate {
   id: number;
+  // Borrado suave: `false` = alguien la canceló y dejó de generar cargos. Ojo,
+  // **no** significa "vigente hoy": una recurrente con `end_date` pasada sigue
+  // llegando con `true`. Para separar "vigente" de "ya terminó" hay que comparar
+  // contra `end_date` en el front (ver `labelRecurringState`).
+  is_active: boolean;
   user: UserPublic | null;
+}
+
+/**
+ * Páginas de los listados de finanzas. Mismo contrato que `UserListPage`: el
+ * cuerpo trae la página y `total` sale del header `X-Total-Count`, que cuenta
+ * con los filtros aplicados e ignorando `skip`/`limit`.
+ */
+export interface TransactionListPage {
+  items: TransactionRead[];
+  total: number;
+}
+
+export interface RecurringListPage {
+  items: RecurringTransactionRead[];
+  total: number;
 }
 
 export interface ListTransactionsParams {
@@ -713,13 +745,17 @@ export interface ListRecurringTransactionsParams {
   limit?: number;
 }
 
-export interface TransactionSummaryParams {
-  kind?: TransactionKind;
-  category?: TransactionCategory;
-  user_id?: number;
-  from_date?: string;
-  to_date?: string;
-}
+/**
+ * Filtros del resumen. Son **los mismos** que los del listado salvo `skip` y
+ * `limit`: los totales de la cabecera describen exactamente el conjunto que se
+ * está listando, no un universo distinto. Por eso hereda de
+ * `ListTransactionsParams` en vez de repetir los campos: si mañana el listado
+ * gana un filtro, esto deja de compilar hasta que el resumen lo pase también.
+ */
+export type TransactionSummaryParams = Omit<
+  ListTransactionsParams,
+  'skip' | 'limit'
+>;
 
 // ---------- Descuentos ----------
 // Descuento persistente por estudiante (tabla `discount`). El backend lo aplica

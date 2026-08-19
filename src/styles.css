@@ -1369,6 +1369,11 @@ button {
   margin-top: 16px;
 }
 
+.paginator--top {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
 .paginator__count {
   margin: 0;
   font-size: 13px;
@@ -1386,6 +1391,18 @@ button {
   font-size: 13px;
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Criterio de orden en el encabezado de una tabla: sin esto el orden existe
+   pero no se comunica, y la lista parece arbitraria. */
+.table-sort {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-subtle);
   white-space: nowrap;
 }
 
@@ -1482,6 +1499,24 @@ button {
   background: color-mix(in srgb, #F59E0B 15%, white);
   color: #92400E;
   border-color: #F59E0B;
+}
+
+.alert__list {
+  margin: 6px 0 0;
+  padding-left: 22px;
+  font-size: 13px;
+}
+
+/* Nombre del campo dentro del resumen: lleva hasta él sin perder el sitio. */
+.alert__field {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .alert--warning .alert__list {

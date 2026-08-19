@@ -10,6 +10,10 @@ interface PaginatorProps {
   // lo único fiable que hay para el texto.
   shown: number;
   disabled?: boolean;
+  // 'top' invierte el margen para que respire contra la tabla que va debajo.
+  // Las listas largas lo llevan arriba y abajo: obliga a menos scroll para
+  // cambiar de página y deja el "Mostrando X–Y de Z" a la vista al llegar.
+  position?: 'top' | 'bottom';
   onChange: (page: number) => void;
 }
 
@@ -23,6 +27,7 @@ export default function Paginator({
   total,
   shown,
   disabled = false,
+  position = 'bottom',
   onChange,
 }: PaginatorProps) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -34,7 +39,10 @@ export default function Paginator({
   const isLast = page >= pages - 1;
 
   return (
-    <nav className="paginator" aria-label="Paginación">
+    <nav
+      className={'paginator' + (position === 'top' ? ' paginator--top' : '')}
+      aria-label="Paginación"
+    >
       <p className="paginator__count">
         Mostrando {from}–{to} de {total}
       </p>
