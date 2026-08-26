@@ -173,7 +173,7 @@ export default function Pnl({ month, year, currency, reloadToken }: PnlProps) {
           <div className="pnl-net__margin">
             Margen{' '}
             <span className="pnl-net__margin-value">
-              {formatPct(pnl.margin, true)}
+              {formatPct(pnl.margin)}
             </span>
           </div>
         </div>
@@ -230,7 +230,7 @@ export default function Pnl({ month, year, currency, reloadToken }: PnlProps) {
                 Margen
               </span>
               <span className="detail-item__value">
-                {formatPct(pnl.margin, true)}
+                {formatPct(pnl.margin)}
               </span>
             </div>
           </div>

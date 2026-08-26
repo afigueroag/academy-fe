@@ -53,20 +53,18 @@ export default function TransactionDetails({
 }: Props) {
   const isExpense = kind === 'expense';
   // El backend solo devuelve el neto; el bruto se reconstruye desde el descuento.
+  // `discount_percentage` no se persiste (siempre llega null en lecturas): el
+  // porcentaje ya está convertido a `discount_amount`, que es el único dato que
+  // se puede mostrar.
   const grossAmount = grossFromNet(
     transaction.amount,
     transaction.discount_amount,
-    transaction.discount_percentage,
+    null,
   );
-  const hasDiscount =
-    transaction.discount_amount != null ||
-    transaction.discount_percentage != null;
-  const discountValue =
-    transaction.discount_amount != null
-      ? formatMoney(transaction.discount_amount, currency)
-      : transaction.discount_percentage != null
-        ? `${transaction.discount_percentage}%`
-        : null;
+  const hasDiscount = transaction.discount_amount != null;
+  const discountValue = hasDiscount
+    ? formatMoney(transaction.discount_amount, currency)
+    : null;
   const client = transaction.user
     ? `${transaction.user.first_name} ${transaction.user.last_name}`
     : transaction.external_name

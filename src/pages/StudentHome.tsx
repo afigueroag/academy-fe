@@ -7,6 +7,7 @@ import AthPaymentPanel from '../components/AthPaymentPanel';
 import { useAuth } from '../auth';
 import { ApiError, getMeHome } from '../api';
 import { formatMoney } from '../utils/money';
+import { formatPct } from '../utils/finance';
 import { labelTransactionCategory } from '../utils/transactionLabels';
 import { ArrowRightIcon, SpinnerIcon } from '../brand';
 import type {
@@ -53,6 +54,14 @@ function asStudentCourse(c: CourseRead): CourseStudentRead {
     groups: c.groups,
   };
 }
+
+type PayTab = 'pending' | 'scheduled' | 'paid';
+
+const PAY_TABS: { value: PayTab; label: string; empty: string }[] = [
+  { value: 'pending', label: 'Pendientes', empty: 'Sin pagos pendientes' },
+  { value: 'scheduled', label: 'Próximos', empty: 'Sin pagos programados' },
+  { value: 'paid', label: 'Pagados', empty: 'Aún no tienes pagos registrados' },
+];
 
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -103,7 +112,7 @@ export default function StudentHome() {
   const [home, setHome] = useState<HomeMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'pending' | 'scheduled'>('pending');
+  const [tab, setTab] = useState<PayTab>('pending');
   const [panelCourse, setPanelCourse] = useState<CourseStudentRead | null>(null);
   const [payTx, setPayTx] = useState<TransactionRead | null>(null);
 
@@ -145,11 +154,17 @@ export default function StudentHome() {
   }
 
   const enrolled = home.enrolled_courses;
-  const pendingTx = home.pending_transactions.filter((t) => t.kind === 'sale');
-  const scheduledTx = home.scheduled_transactions.filter(
-    (t) => t.kind === 'sale',
-  );
-  const txs = tab === 'pending' ? pendingTx : scheduledTx;
+  const sales = (list: TransactionRead[]) =>
+    list.filter((t) => t.kind === 'sale');
+  const byTab: Record<PayTab, TransactionRead[]> = {
+    pending: sales(home.pending_transactions),
+    scheduled: sales(home.scheduled_transactions),
+    paid: sales(home.paid_transactions),
+  };
+  const txs = byTab[tab];
+  // Pendientes y próximos se pueden cobrar con ATH (adelantar un pago próximo
+  // es válido para el backend); las pagadas ya no.
+  const canPay = athEnabled && tab !== 'paid';
 
   const next = home.next_session;
   const att = home.attendance_summary;
@@ -191,7 +206,7 @@ export default function StudentHome() {
         <div className="summary-card">
           <div className="summary-card__label">Asistencia</div>
           <div className="summary-card__value">
-            {att ? `${Math.round(att.pct_last_12)}%` : '—'}
+            {att ? formatPct(att.pct_last_12, 0) : '—'}
           </div>
         </div>
       </div>
@@ -201,34 +216,25 @@ export default function StudentHome() {
           <h3 className="home-card__title">Mis pagos</h3>
 
           <div className="tab-group">
-            <button
-              type="button"
-              className={
-                'tab-group__item' +
-                (tab === 'pending' ? ' tab-group__item--active' : '')
-              }
-              onClick={() => setTab('pending')}
-            >
-              Pendientes
-            </button>
-            <button
-              type="button"
-              className={
-                'tab-group__item' +
-                (tab === 'scheduled' ? ' tab-group__item--active' : '')
-              }
-              onClick={() => setTab('scheduled')}
-            >
-              Próximos
-            </button>
+            {PAY_TABS.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                className={
+                  'tab-group__item' +
+                  (tab === t.value ? ' tab-group__item--active' : '')
+                }
+                onClick={() => setTab(t.value)}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
           {txs.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state__title">
-                {tab === 'pending'
-                  ? 'Sin pagos pendientes'
-                  : 'Sin pagos programados'}
+                {PAY_TABS.find((t) => t.value === tab)?.empty}
               </div>
             </div>
           ) : (
@@ -241,13 +247,21 @@ export default function StudentHome() {
                       <span className="payment-row__category">
                         {labelTransactionCategory(tx.category)}
                       </span>
-                      <span>{formatLongDate(tx.transaction_date)}</span>
+                      <span>
+                        {/* Un pago adelantado conserva su transaction_date
+                            futura, así que en "Pagados" manda paid_date. */}
+                        {tab === 'paid'
+                          ? `Pagado el ${formatLongDate(
+                              tx.paid_date ?? tx.transaction_date,
+                            )}`
+                          : formatLongDate(tx.transaction_date)}
+                      </span>
                     </span>
                   </div>
                   <div className="payment-row__amount">
                     {formatMoney(tx.amount, currency)}
                   </div>
-                  {tab === 'pending' && athEnabled && (
+                  {canPay && (
                     <button
                       type="button"
                       className="btn btn--primary btn--sm"

@@ -1,7 +1,10 @@
+import { formatPct } from '../../utils/finance';
+
 export interface HBarDatum {
   label: string;
   value: number;
-  // Porcentaje sobre el total (lo provee el backend). Opcional.
+  // Peso sobre el total, como fracción 0–1 tal cual lo devuelve el backend
+  // (ver utils/finance.ts). Opcional.
   pct?: number;
 }
 
@@ -28,7 +31,7 @@ export default function HBarList({ data, formatValue }: HBarListProps) {
               <span className="hbar-list__value">
                 {fmt(d.value)}
                 {d.pct != null && (
-                  <span className="hbar-list__pct"> · {d.pct.toFixed(1)}%</span>
+                  <span className="hbar-list__pct"> · {formatPct(d.pct)}</span>
                 )}
               </span>
             </div>

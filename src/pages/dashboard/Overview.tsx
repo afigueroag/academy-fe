@@ -108,8 +108,7 @@ export default function Overview({
         />
         <KpiCard
           label="Margen de utilidad"
-          // profit_margin viene como fracción 0–1 (ver utils/finance.ts).
-          value={formatPct(kpis.profit_margin.value, true)}
+          value={formatPct(kpis.profit_margin.value)}
           delta={kpis.profit_margin.delta_pct}
         />
       </section>
@@ -165,7 +164,7 @@ export default function Overview({
                 Margen
               </span>
               <span className="detail-item__value">
-                {formatPct(pnl.margin, true)}
+                {formatPct(pnl.margin)}
               </span>
             </div>
           </div>

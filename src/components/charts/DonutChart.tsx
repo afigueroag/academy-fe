@@ -1,3 +1,5 @@
+import { formatPct } from '../../utils/finance';
+
 // Paleta de series derivada de los tokens de marca (sin hex hardcoded). Se
 // mezcla con blanco para obtener tintes y distinguir segmentos.
 const SERIES_COLORS = [
@@ -18,6 +20,8 @@ export function seriesColor(i: number): string {
 export interface DonutDatum {
   label: string;
   value: number;
+  // Peso sobre el total, como fracción 0–1 tal cual lo devuelve el backend
+  // (ver utils/finance.ts). Opcional.
   pct?: number;
 }
 
@@ -102,7 +106,7 @@ export default function DonutChart({
               {d.label}
             </span>
             <span className="donut__legend-value">
-              {d.pct != null ? `${d.pct.toFixed(1)}%` : fmt(d.value)}
+              {d.pct != null ? formatPct(d.pct) : fmt(d.value)}
             </span>
           </li>
         ))}

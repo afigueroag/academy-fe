@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  BRAND_TAGLINE,
   CheckIcon,
   Logo,
   SpinnerIcon,
@@ -185,11 +184,8 @@ export default function Register() {
           <Logo size={32} />
         </div>
         <div className="auth-aside__quote">
-          <p>{BRAND_TAGLINE}.</p>
-          <span>
-            Gestiona alumnos, cursos y pagos en un solo lugar — diseñado para
-            academias de cualquier disciplina.
-          </span>
+          <p>Gestiona alumnos, cursos y pagos en un solo lugar.</p>
+          <span>Diseñado para academias de cualquier disciplina.</span>
         </div>
         <span style={{ opacity: 0.7, fontSize: 13 }}>
           © {new Date().getFullYear()} Cantera

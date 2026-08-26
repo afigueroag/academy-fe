@@ -92,18 +92,13 @@ const EMPTY = (): FormState => ({
 
 function fromTransaction(tx: TransactionRead): FormState {
   const isRegistered = tx.user_id !== null;
+  // El porcentaje es solo de entrada: el backend lo convierte a
+  // `discount_amount` y no lo guarda. Al editar, un descuento que se creó como
+  // porcentual vuelve como monto fijo — que es el dato que realmente se aplicó.
   const discount_kind: DiscountKind =
-    tx.discount_amount != null
-      ? 'fixed'
-      : tx.discount_percentage != null
-        ? 'percentage'
-        : 'none';
+    tx.discount_amount != null ? 'fixed' : 'none';
   const discount_value =
-    discount_kind === 'fixed'
-      ? String(fromCents(tx.discount_amount) ?? '')
-      : discount_kind === 'percentage'
-        ? String(tx.discount_percentage ?? '')
-        : '';
+    discount_kind === 'fixed' ? String(fromCents(tx.discount_amount) ?? '') : '';
   return {
     client_type: isRegistered ? 'registered' : 'external',
     user_id: tx.user_id,
@@ -114,9 +109,7 @@ function fromTransaction(tx: TransactionRead): FormState {
     category: tx.category,
     description: tx.description,
     gross_amount: String(
-      fromCents(
-        grossFromNet(tx.amount, tx.discount_amount, tx.discount_percentage),
-      ) ?? '',
+      fromCents(grossFromNet(tx.amount, tx.discount_amount, null)) ?? '',
     ),
     discount_kind,
     discount_value,

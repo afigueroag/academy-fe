@@ -5,7 +5,7 @@ import { SpinnerIcon } from '../../brand';
 import KpiCard from '../../components/charts/KpiCard';
 import DonutChart from '../../components/charts/DonutChart';
 import { formatMoney } from '../../utils/money';
-import { formatPct, formatDayMonth } from '../../utils/finance';
+import { formatPct, formatDayMonth, pctBarWidth } from '../../utils/finance';
 import {
   labelPaymentMethod,
   labelTransactionCategory,
@@ -112,9 +112,9 @@ export default function Expenses({
             <div
               className={
                 'progress__fill' +
-                (budget.used_pct > 100 ? ' progress__fill--over' : '')
+                (budget.used_pct > 1 ? ' progress__fill--over' : '')
               }
-              style={{ width: `${Math.min(100, Math.max(0, budget.used_pct))}%` }}
+              style={{ width: `${pctBarWidth(budget.used_pct)}%` }}
             />
           </div>
           <div className="kpi-card__delta kpi-card__delta--flat">

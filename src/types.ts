@@ -568,7 +568,11 @@ export interface TransactionCreate {
   payment_reference: string | null;
   payment_notes: string | null;
   // Descuento puntual de la transacción. Es fijo (discount_amount, cents) O
-  // porcentual (discount_percentage, 0–100), nunca ambos a la vez.
+  // porcentual (discount_percentage, entero 0–100), nunca ambos a la vez.
+  //
+  // Ojo con la asimetría: `discount_percentage` es SOLO de entrada. El backend
+  // lo usa para calcular `discount_amount` y no lo persiste, así que en toda
+  // lectura vuelve como null. El dato bueno para mostrar es `discount_amount`.
   discount_amount: number | null;
   discount_percentage: number | null;
   discount_description: string | null;
@@ -1033,9 +1037,10 @@ export interface ActiveSessionRead {
 }
 
 export interface AttendanceMe {
+  // Fracción 0–1 (0.85 => 85 %). Ver nota de escala en utils/finance.ts.
   pct_last_12: number;
   present: number;
-  absent: number;
+  absent_excused: number;
   total: number;
 }
 
@@ -1068,6 +1073,10 @@ export interface HomeMe {
   enrolled_courses: CourseRead[];
   pending_transactions: TransactionRead[];
   scheduled_transactions: TransactionRead[];
+  // Últimos 24 cobros ya pagados del propio usuario, ordenados por paid_date
+  // desc. Sin paginador ni parámetros. Solo se llena para rol student; el
+  // instructor recibe [] y usa payouts.paid_recent.
+  paid_transactions: TransactionRead[];
   attendance_summary: AttendanceMe | null;
   next_session: NextSessionMe | null;
   // null cuando role != instructor:

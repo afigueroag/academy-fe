@@ -1,25 +1,39 @@
 // Helpers de formato para el módulo Finanzas. El backend agrega los valores; el
 // frontend solo los pinta.
 //
-// TODO: confirmar escala con respuesta real del backend. De momento asumimos:
-//   - `delta_pct` (variación de KPIs) YA viene como porcentaje (12.5 => 12.5%).
-//   - `margin` (P&L) viene como fracción 0–1 (0.25 => 25%).
-// Si el backend usa otra escala, ajustar SOLO estas dos funciones.
+// ESCALA DE PORCENTAJES (confirmada con backend, ago 2026): todo campo tipado
+// `number` que devuelve la API es una FRACCIÓN 0–1 — `pct_last_12`,
+// `attendance_pct`, `delta_pct`, los `pct` de los breakdowns, `used_pct`,
+// `margin` y `profit_margin.value`. Se multiplica por 100 solo al pintar, y ese
+// ×100 vive aquí: no lo repliques en las páginas.
+//
+// Única excepción: los descuentos (`discount_percentage` de una transacción y
+// `Discount.percentage`) son ENTEROS 0–100, porque los teclea el usuario y hay
+// datos guardados con esa escala. No pasan por estos helpers.
 
 export function formatPct(
   value: number | null | undefined,
-  fromFraction = false,
+  digits = 1,
 ): string {
   if (value === null || value === undefined) return '—';
-  const pct = fromFraction ? value * 100 : value;
-  return `${pct.toFixed(1)}%`;
+  return `${(value * 100).toFixed(digits)}%`;
 }
 
 // Variación de KPI con signo explícito (para el chip ↑/↓ "vs. mes anterior").
+// No está acotada: -0.25 => "-25.0%", 5 => "+500.0%". `null` significa "sin
+// comparación" (el período anterior fue 0), no 0 %.
 export function formatDeltaPct(delta: number | null | undefined): string {
   if (delta === null || delta === undefined) return '—';
   const sign = delta > 0 ? '+' : '';
-  return `${sign}${delta.toFixed(1)}%`;
+  return `${sign}${(delta * 100).toFixed(1)}%`;
+}
+
+// Ancho de barra en % a partir de una fracción, topado a [0, 100]. El valor
+// real puede pasar de 1 (presupuesto excedido): la barra se llena y el número
+// que va al lado sigue mostrando el exceso.
+export function pctBarWidth(value: number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return Math.min(100, Math.max(0, value * 100));
 }
 
 const MONTHS_FULL = [

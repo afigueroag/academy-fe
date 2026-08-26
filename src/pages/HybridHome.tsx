@@ -8,6 +8,7 @@ import AthPaymentPanel from '../components/AthPaymentPanel';
 import { useAuth } from '../auth';
 import { ApiError, getActiveSession, getCourse, getMeHome } from '../api';
 import { formatMoney } from '../utils/money';
+import { formatPct } from '../utils/finance';
 import { labelTransactionCategory } from '../utils/transactionLabels';
 import { isValidScheduledDatetime } from '../utils/sessions';
 import { TransactionStatusBadge } from '../components/Badges';
@@ -240,8 +241,18 @@ export default function HybridHome() {
     ...(payouts?.scheduled ?? []),
   ].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
 
-  // Lo que debe como estudiante.
-  const debts = home.pending_transactions.filter((t) => t.kind === 'sale');
+  // Lo que debe como estudiante. Los próximos entran junto a los pendientes:
+  // el backend acepta cobrar una transacción `scheduled` para adelantarla.
+  const debts = [
+    ...home.pending_transactions,
+    ...home.scheduled_transactions,
+  ]
+    .filter((t) => t.kind === 'sale')
+    .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+
+  // Cobros ya pagados. El backend solo llena paid_transactions para rol
+  // student, así que el bloque se pinta únicamente si trae algo.
+  const paidDebts = home.paid_transactions.filter((t) => t.kind === 'sale');
 
   return (
     <Layout title="Inicio">
@@ -308,7 +319,7 @@ export default function HybridHome() {
         <div className="summary-card">
           <div className="summary-card__label">Asistencia</div>
           <div className="summary-card__value">
-            {att ? `${Math.round(att.pct_last_12)}%` : '—'}
+            {att ? formatPct(att.pct_last_12, 0) : '—'}
           </div>
         </div>
       </div>
@@ -435,6 +446,31 @@ export default function HybridHome() {
               ))
             )}
           </div>
+
+          {paidDebts.length > 0 && (
+            <div>
+              <p className="home-payouts-section__title">Mis cobros pagados</p>
+              {paidDebts.map((tx) => (
+                <div key={tx.id} className="home-payouts-row">
+                  <TransactionStatusBadge status={tx.status} />
+                  <div className="home-payouts-row__main">
+                    <span className="home-payouts-row__desc">
+                      {payoutDesc(tx)}
+                    </span>
+                    <span className="home-payouts-row__meta">
+                      {/* Un pago adelantado conserva su transaction_date
+                          futura: aquí manda paid_date. */}
+                      Pagado el{' '}
+                      {formatShortDate(tx.paid_date ?? tx.transaction_date)}
+                    </span>
+                  </div>
+                  <span className="home-payouts-row__amount">
+                    {formatMoney(tx.amount, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

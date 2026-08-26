@@ -1,5 +1,4 @@
 export const BRAND_NAME = 'Cantera';
-export const BRAND_TAGLINE = 'Donde se forma el talento';
 
 interface LogoProps {
   size?: number;

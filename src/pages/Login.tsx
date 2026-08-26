@@ -1,11 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  ArrowRightIcon,
-  BRAND_TAGLINE,
-  Logo,
-  SpinnerIcon,
-} from '../brand';
+import { ArrowRightIcon, Logo, SpinnerIcon } from '../brand';
 import { ApiError, clearToken, getMe, login, setToken } from '../api';
 import { useAuth } from '../auth';
 import { homePathForRole } from '../routing';
@@ -82,10 +77,9 @@ export default function Login() {
           <Logo size={32} />
         </div>
         <div className="auth-aside__quote">
-          <p>{BRAND_TAGLINE}.</p>
+          <p>Tu academia, organizada.</p>
           <span>
-            Tu academia, organizada. Alumnos, cursos, asistencia y pagos en un
-            solo lugar.
+            Alumnos, cursos, asistencia y pagos en un solo lugar.
           </span>
         </div>
         <span style={{ opacity: 0.7, fontSize: 13 }}>

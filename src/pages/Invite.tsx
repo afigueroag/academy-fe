@@ -1,12 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { acceptInvite, ApiError, getInvitee } from '../api';
-import {
-  ArrowRightIcon,
-  BRAND_TAGLINE,
-  Logo,
-  SpinnerIcon,
-} from '../brand';
+import { ArrowRightIcon, Logo, SpinnerIcon } from '../brand';
 import type { UserPublic } from '../types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -112,8 +107,7 @@ export default function Invite() {
           <Logo size={32} />
         </div>
         <div className="auth-aside__quote">
-          <p>{BRAND_TAGLINE}.</p>
-          <span>Activa tu cuenta para empezar a colaborar con tu academia.</span>
+          <p>Activa tu cuenta para empezar a colaborar con tu academia.</p>
         </div>
         <span style={{ opacity: 0.7, fontSize: 13 }}>
           © {new Date().getFullYear()} Cantera

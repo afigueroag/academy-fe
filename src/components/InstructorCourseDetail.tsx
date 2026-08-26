@@ -5,6 +5,7 @@ import { ApiError, getCourseAttendanceMatrix } from '../api';
 import { formatScheduleSummary } from '../utils/schedule';
 import { instructorTypeLabel } from '../utils/instructorTypeLabels';
 import { labelAttendanceStatus } from '../utils/attendanceLabels';
+import { formatPct } from '../utils/finance';
 import { SpinnerIcon } from '../brand';
 import type { AttendanceMatrixRead, AttendanceStatus } from '../types';
 
@@ -299,9 +300,7 @@ export default function InstructorCourseDetail({
                             );
                           })}
                           <td className="attendance-matrix__pct">
-                            {row.attendance_pct === null
-                              ? '—'
-                              : `${Math.round(row.attendance_pct)}%`}
+                            {formatPct(row.attendance_pct, 0)}
                           </td>
                         </tr>
                       );
