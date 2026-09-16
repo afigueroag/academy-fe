@@ -1008,6 +1008,11 @@ export interface ListAttendanceParams {
   limit?: number;
 }
 
+// De dónde salió la tarifa por hora de la fila: `link` = tarifa propia del
+// instructor en ese curso, `academy_default` = tarifa por defecto de la
+// academia para su rol, `undefined` = no hay ninguna de las dos.
+export type RateSource = 'link' | 'academy_default' | 'undefined';
+
 export interface CoursePmtRead {
   course_id: number;
   course_name: string;
@@ -1015,14 +1020,17 @@ export interface CoursePmtRead {
   sessions: number;
   minutes: number;
   hours: number;
-  hourly_rate: number;
-  payment: number;
+  // null cuando `rate_source` es 'undefined': falta el dato, no es cero.
+  hourly_rate: number | null;
+  payment: number | null;
+  rate_source: RateSource;
 }
 
 export interface InstructorPmtRead {
   total_minutes: number;
   total_hours: number;
-  total_payment: number;
+  // null si algún curso quedó sin tarifa: el total no se puede calcular.
+  total_payment: number | null;
   by_course: CoursePmtRead[];
 }
 
@@ -1053,7 +1061,8 @@ export interface HomeMeInstructorKpis {
   active_courses: number;
   total_students: number;
   hours_this_month: number;
-  pending_amount: number; // cents
+  // cents; null si algún curso quedó sin tarifa por hora.
+  pending_amount: number | null;
 }
 
 export interface AssignedCourseRead {

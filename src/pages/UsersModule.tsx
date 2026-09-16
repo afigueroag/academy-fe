@@ -1811,6 +1811,7 @@ export default function UsersModule(props: UsersModuleProps) {
 
       <SidePanel
         open={panel?.kind === 'view'}
+        wide
         title={viewTitle}
         subtitle={
           panel?.kind === 'view'

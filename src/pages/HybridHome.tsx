@@ -8,6 +8,10 @@ import AthPaymentPanel from '../components/AthPaymentPanel';
 import { useAuth } from '../auth';
 import { ApiError, getActiveSession, getCourse, getMeHome } from '../api';
 import { formatMoney } from '../utils/money';
+import {
+  MISSING_RATE_LABEL,
+  MISSING_RATE_TOTAL_NOTE,
+} from '../utils/rateSource';
 import { formatPct } from '../utils/finance';
 import { labelTransactionCategory } from '../utils/transactionLabels';
 import { isValidScheduledDatetime } from '../utils/sessions';
@@ -280,9 +284,19 @@ export default function HybridHome() {
         </div>
         <div className="summary-card">
           <div className="summary-card__label">Pago pendiente</div>
-          <div className="summary-card__value">
-            {formatMoney(kpis?.pending_amount ?? 0, currency)}
-          </div>
+          {/* null (no 0) cuando algún curso quedó sin tarifa por hora. */}
+          {kpis && kpis.pending_amount === null ? (
+            <>
+              <div className="summary-card__value summary-card__value--empty">
+                {MISSING_RATE_LABEL}
+              </div>
+              <p className="summary-card__note">{MISSING_RATE_TOTAL_NOTE}</p>
+            </>
+          ) : (
+            <div className="summary-card__value">
+              {formatMoney(kpis?.pending_amount ?? 0, currency)}
+            </div>
+          )}
         </div>
       </div>
 

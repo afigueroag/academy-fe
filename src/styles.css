@@ -1128,6 +1128,12 @@ button {
   animation: slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Para paneles con tablas dentro (la ficha de un usuario y sus horas y pago),
+   donde 620px dejan las columnas demasiado apretadas. */
+.side-panel--wide {
+  max-width: 820px;
+}
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);
@@ -2645,6 +2651,53 @@ button {
 }
 
 .table-cell--muted {
+  color: var(--color-text-muted);
+}
+
+/* Horas y pago del instructor: seis columnas dentro de un panel lateral. Con el
+   padding normal (18px por lado, 216px solo en aire) el nombre del curso queda
+   partido en varias líneas, así que se aprieta el espacio entre columnas y se
+   devuelve al curso, que es lo único de ancho variable. */
+.users-table--pay thead th,
+.users-table--pay tbody td {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.users-table--pay thead th:first-child,
+.users-table--pay tbody td:first-child {
+  padding-left: 18px;
+}
+
+.users-table--pay thead th:last-child,
+.users-table--pay tbody td:last-child {
+  padding-right: 18px;
+}
+
+/* `width: 100%` en tabla de layout automático = quédate con lo que sobre
+   después de que las columnas `nowrap` tomen lo suyo. */
+.users-table--pay .pay-course {
+  width: 100%;
+  min-width: 150px;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+/* Explicación de las tarifas por hora ausentes. Va una sola vez, debajo de la
+   tabla (fuera de `.table-wrapper`, para que no se desplace con su scroll
+   horizontal), no repetida en cada fila "Sin definir". */
+.rate-note {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* Misma explicación bajo el valor de una tarjeta de resumen. */
+.summary-card__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--color-text-muted);
 }
 

@@ -4,6 +4,12 @@ import { ApiError, getInstructorPmt } from '../api';
 import { ClockIcon, SpinnerIcon } from '../brand';
 import { formatMoney } from '../utils/money';
 import { labelAttendanceRole } from '../utils/attendanceLabels';
+import {
+  MISSING_RATE_LABEL,
+  MISSING_RATE_TOTAL_NOTE,
+  hasMissingRate,
+  missingRateAdminNote,
+} from '../utils/rateSource';
 
 type Preset = 'this_month' | 'last_month' | 'last_30' | 'custom';
 
@@ -90,7 +96,12 @@ export default function InstructorPaySection({
 
   const isEmpty = !data || data.by_course.length === 0;
   const totalHours = data ? data.total_hours.toFixed(1) : '0.0';
-  const totalPay = formatMoney(data?.total_payment ?? 0, currency);
+  // `total_payment` viene null si algún curso quedó sin tarifa. No se sustituye
+  // por 0: en su lugar se avisa que el total no se puede calcular.
+  const missingRate = !!data && hasMissingRate(data.by_course);
+  const totalPay = missingRate
+    ? MISSING_RATE_LABEL
+    : formatMoney(data?.total_payment ?? 0, currency);
 
   return (
     <section className="form-section" style={{ marginTop: 16 }}>
@@ -151,7 +162,17 @@ export default function InstructorPaySection({
         </div>
         <div className="summary-card">
           <p className="summary-card__label">Pago</p>
-          <div className="summary-card__value">{totalPay}</div>
+          <div
+            className={
+              'summary-card__value' +
+              (missingRate ? ' summary-card__value--empty' : '')
+            }
+          >
+            {totalPay}
+          </div>
+          {missingRate && (
+            <p className="summary-card__note">{MISSING_RATE_TOTAL_NOTE}</p>
+          )}
         </div>
       </div>
 
@@ -174,10 +195,10 @@ export default function InstructorPaySection({
         </p>
       ) : (
         <div className="table-wrapper">
-          <table className="users-table">
+          <table className="users-table users-table--pay">
             <thead>
               <tr>
-                <th>Curso</th>
+                <th className="pay-course">Curso</th>
                 <th>Rol</th>
                 <th
                   className="table-cell--nowrap"
@@ -206,38 +227,51 @@ export default function InstructorPaySection({
               </tr>
             </thead>
             <tbody>
-              {data!.by_course.map((c) => (
-                <tr key={`${c.course_id}|${c.attendance_role}`}>
-                  <td>{c.course_name}</td>
-                  <td className="table-cell--nowrap">
-                    {labelAttendanceRole(c.attendance_role)}
-                  </td>
-                  <td
-                    className="table-cell--nowrap"
-                    style={{ textAlign: 'right' }}
-                  >
-                    {c.sessions}
-                  </td>
-                  <td
-                    className="table-cell--nowrap"
-                    style={{ textAlign: 'right' }}
-                  >
-                    {c.hours.toFixed(1)}
-                  </td>
-                  <td
-                    className="table-cell--nowrap"
-                    style={{ textAlign: 'right' }}
-                  >
-                    {formatMoney(c.hourly_rate, currency)}/h
-                  </td>
-                  <td
-                    className="table-cell--nowrap"
-                    style={{ textAlign: 'right' }}
-                  >
-                    {formatMoney(c.payment, currency)}
-                  </td>
-                </tr>
-              ))}
+              {data!.by_course.map((c) => {
+                const noRate = c.rate_source === 'undefined';
+                return (
+                  <tr key={`${c.course_id}|${c.attendance_role}`}>
+                    <td className="pay-course">{c.course_name}</td>
+                    <td className="table-cell--nowrap">
+                      {labelAttendanceRole(c.attendance_role)}
+                    </td>
+                    <td
+                      className="table-cell--nowrap"
+                      style={{ textAlign: 'right' }}
+                    >
+                      {c.sessions}
+                    </td>
+                    <td
+                      className="table-cell--nowrap"
+                      style={{ textAlign: 'right' }}
+                    >
+                      {c.hours.toFixed(1)}
+                    </td>
+                    <td
+                      className={
+                        'table-cell--nowrap' +
+                        (noRate ? ' table-cell--muted' : '')
+                      }
+                      style={{ textAlign: 'right' }}
+                    >
+                      {noRate
+                        ? MISSING_RATE_LABEL
+                        : `${formatMoney(c.hourly_rate, currency)}/h`}
+                    </td>
+                    <td
+                      className={
+                        'table-cell--nowrap' +
+                        (noRate ? ' table-cell--muted' : '')
+                      }
+                      style={{ textAlign: 'right' }}
+                    >
+                      {noRate
+                        ? MISSING_RATE_LABEL
+                        : formatMoney(c.payment, currency)}
+                    </td>
+                  </tr>
+                );
+              })}
               <tr>
                 <td
                   colSpan={5}
@@ -255,6 +289,12 @@ export default function InstructorPaySection({
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Una sola nota al pie: explica el "Sin definir" de las filas y el total
+          que no se pudo calcular, sin repetirse en cada línea. */}
+      {!loading && missingRate && (
+        <p className="rate-note">{missingRateAdminNote(data!.by_course)}</p>
       )}
     </section>
   );

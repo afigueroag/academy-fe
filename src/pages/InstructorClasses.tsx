@@ -14,6 +14,7 @@ import {
 import { startOfWeek } from '../utils/calendar';
 import { formatMoney } from '../utils/money';
 import { labelAttendanceRole } from '../utils/attendanceLabels';
+import { MISSING_RATE_LABEL, missingRateSelfNote } from '../utils/rateSource';
 import { CalendarIcon, EyeIcon, ListIcon, SpinnerIcon } from '../brand';
 import type {
   AssignedCourseRead,
@@ -143,6 +144,11 @@ export default function InstructorClasses() {
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [assigned, byCourse]);
 
+  const missingRateNote = useMemo(
+    () => missingRateSelfNote(byCourse),
+    [byCourse],
+  );
+
   // Auto-abrir el detalle si venimos del CTA "Pasar lista" de Inicio.
   useEffect(() => {
     const courseParam = searchParams.get('course');
@@ -251,44 +257,70 @@ export default function InstructorClasses() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.courseId}>
-                  <td>
-                    <span className="user-cell__name">{row.name}</span>
-                  </td>
-                  <td>
-                    {row.pmt ? labelAttendanceRole(row.pmt.attendance_role) : '—'}
-                  </td>
-                  <td className="table-cell--nowrap">
-                    {formatNextSession(row.nextSession)}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>{row.pmt?.sessions ?? 0}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {(row.pmt?.hours ?? 0).toFixed(1)}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    {row.pmt ? formatMoney(row.pmt.hourly_rate, currency) : '—'}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    {row.pmt ? formatMoney(row.pmt.payment, currency) : '—'}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      onClick={() => setPanelCourse(row.courseId)}
-                      title="Ver detalle"
-                      aria-label="Ver detalle"
+              {rows.map((row) => {
+                const noRate = row.pmt?.rate_source === 'undefined';
+                return (
+                  <tr key={row.courseId}>
+                    <td>
+                      <span className="user-cell__name">{row.name}</span>
+                    </td>
+                    <td>
+                      {row.pmt
+                        ? labelAttendanceRole(row.pmt.attendance_role)
+                        : '—'}
+                    </td>
+                    <td className="table-cell--nowrap">
+                      {formatNextSession(row.nextSession)}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {row.pmt?.sessions ?? 0}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {(row.pmt?.hours ?? 0).toFixed(1)}
+                    </td>
+                    <td
+                      className={noRate ? 'table-cell--muted' : undefined}
+                      style={{ textAlign: 'right' }}
                     >
-                      <EyeIcon size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      {noRate
+                        ? MISSING_RATE_LABEL
+                        : row.pmt
+                          ? formatMoney(row.pmt.hourly_rate, currency)
+                          : '—'}
+                    </td>
+                    <td
+                      className={noRate ? 'table-cell--muted' : undefined}
+                      style={{ textAlign: 'right' }}
+                    >
+                      {noRate
+                        ? MISSING_RATE_LABEL
+                        : row.pmt
+                          ? formatMoney(row.pmt.payment, currency)
+                          : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => setPanelCourse(row.courseId)}
+                        title="Ver detalle"
+                        aria-label="Ver detalle"
+                      >
+                        <EyeIcon size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           )}
         </div>
+      )}
+
+      {/* Una sola nota al pie, no una por línea. */}
+      {!loading && view === 'list' && missingRateNote && (
+        <p className="rate-note">{missingRateNote}</p>
       )}
 
       {panelCourse !== null && (

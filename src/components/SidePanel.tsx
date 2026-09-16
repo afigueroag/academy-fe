@@ -7,6 +7,8 @@ interface SidePanelProps {
   subtitle?: string;
   onClose: () => void;
   footer?: ReactNode;
+  // Panel más ancho, para contenido con tablas que no cabe cómodo en 620px.
+  wide?: boolean;
   children: ReactNode;
 }
 
@@ -16,6 +18,7 @@ export default function SidePanel({
   subtitle,
   onClose,
   footer,
+  wide = false,
   children,
 }: SidePanelProps) {
   useEffect(() => {
@@ -42,7 +45,7 @@ export default function SidePanel({
         aria-hidden="true"
       />
       <aside
-        className="side-panel"
+        className={'side-panel' + (wide ? ' side-panel--wide' : '')}
         role="dialog"
         aria-modal="true"
         aria-label={title}
