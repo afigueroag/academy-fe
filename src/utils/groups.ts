@@ -1,25 +1,25 @@
 import type { GroupPublic } from '../types';
 
-// Replica en el front la regla de elegibilidad por grupos que calcula el backend.
-// Se usa SOLO para la advertencia no bloqueante del admin (la vista del alumno
-// confía en `can_enroll`).
+// Replica en el front la regla de elegibilidad por categorías que calcula el
+// backend. Se usa SOLO para la advertencia no bloqueante del admin (la vista del
+// alumno confía en `can_enroll`).
 //
-// Un estudiante cumple una clase si cumple TODAS las categorías en las que la
-// clase tiene al menos un grupo (AND entre categorías):
-//   - Si el estudiante no tiene ningún grupo en esa categoría → no cumple.
-//   - Categoría NO ordinal → intersección no vacía (coincide al menos un grupo).
-//   - Categoría ordinal → rank_máx(estudiante) >= rank_mín(clase).
+// Un estudiante cumple una clase si cumple TODAS las clasificaciones en las que
+// la clase tiene al menos una categoría (AND entre clasificaciones):
+//   - Si el estudiante no tiene ninguna categoría en esa clasificación → no cumple.
+//   - Clasificación NO ordinal → intersección no vacía (coincide al menos una).
+//   - Clasificación ordinal → rank_máx(estudiante) >= rank_mín(clase).
 //
 // Casos borde:
-//   - Clase sin grupos → abierta para todos (true).
-//   - Estudiante sin grupos → solo cumple clases sin grupos.
+//   - Clase sin categorías → abierta para todos (true).
+//   - Estudiante sin categorías → solo cumple clases sin categorías.
 export function studentMeetsGroups(
   studentGroups: GroupPublic[],
   courseGroups: GroupPublic[],
 ): boolean {
   if (courseGroups.length === 0) return true;
 
-  // Agrupa los grupos de la clase por categoría.
+  // Agrupa las categorías de la clase por clasificación.
   const byCategory = new Map<
     number,
     { isOrdinal: boolean; groups: GroupPublic[] }
@@ -57,8 +57,8 @@ export function studentMeetsGroups(
   return true;
 }
 
-// Texto corto de los grupos requeridos por una clase, para mostrar el motivo del
-// bloqueo (p. ej. "Cinta Azul, Adultos").
+// Texto corto de las categorías requeridas por una clase, para mostrar el motivo
+// del bloqueo (p. ej. "Cinta Azul, Adultos").
 export function requiredGroupsLabel(courseGroups: GroupPublic[]): string {
   return courseGroups.map((g) => g.name).join(', ');
 }

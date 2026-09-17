@@ -522,10 +522,10 @@ export default function CourseForm(props: CourseFormProps) {
       </section>
 
       <section className="form-section">
-        <h3 className="form-section__title">Grupos</h3>
+        <h3 className="form-section__title">Categorías</h3>
         <div className="field">
           <span className="field__hint">
-            Restringe quién puede inscribir esta clase. Sin grupos, la clase
+            Restringe quién puede inscribir esta clase. Sin categorías, la clase
             queda abierta para todos.
           </span>
           <GroupPicker

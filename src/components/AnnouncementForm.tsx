@@ -485,7 +485,7 @@ export default function AnnouncementForm({
               </div>
 
               <div className="field">
-                <div className="field__label">Grupos</div>
+                <div className="field__label">Categorías</div>
                 <GroupPicker value={groups} onChange={setGroups} />
               </div>
 

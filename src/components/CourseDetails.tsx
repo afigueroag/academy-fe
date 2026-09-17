@@ -150,10 +150,10 @@ export default function CourseDetails({
       </section>
 
       <section className="form-section">
-        <h3 className="form-section__title">Grupos</h3>
+        <h3 className="form-section__title">Categorías</h3>
         <div className="detail-list">
           <Item
-            label="Grupos requeridos"
+            label="Categorías requeridas"
             value={
               course.groups.length === 0 ? null : (
                 <GroupChips groups={course.groups} />

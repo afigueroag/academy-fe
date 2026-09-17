@@ -163,7 +163,7 @@ export default function Layout({ title, actions, children }: LayoutProps) {
                 }
               >
                 <ListIcon size={18} />
-                <span>Grupos</span>
+                <span>Categorías</span>
               </NavLink>
               {(me?.role === 'admin' || me?.role === 'receptionist') && (
                 <NavLink

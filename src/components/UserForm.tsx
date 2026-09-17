@@ -189,7 +189,7 @@ export default function UserForm(props: UserFormProps) {
 
   const isStudent = props.role === 'student';
   const isStudentCreate = mode === 'create' && isStudent;
-  // ¿Mostrar campos de estudiante (grupos, datos extra, descuentos)? El híbrido
+  // ¿Mostrar campos de estudiante (categorías, datos extra, descuentos)? El híbrido
   // también los tiene.
   const showsStudentFields = hasStudentView(effectiveRole);
   const academy: AcademyMe | undefined =
@@ -643,7 +643,7 @@ export default function UserForm(props: UserFormProps) {
 
       {showsStudentFields && (
         <div className="field">
-          <span className="field__label">Grupos</span>
+          <span className="field__label">Categorías</span>
           <GroupPicker value={groups} onChange={setGroups} />
         </div>
       )}

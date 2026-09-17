@@ -20,6 +20,7 @@ import {
 import ConfirmModal from './ConfirmModal';
 import InstructorPaySection from './InstructorPaySection';
 import StudentAttendanceSection from './StudentAttendanceSection';
+import StudentEnrollmentsSection from './StudentEnrollmentsSection';
 import UserDocumentsSection from './UserDocumentsSection';
 import StudentDiscountsSection from './StudentDiscountsSection';
 import {
@@ -282,7 +283,7 @@ export default function UserDetails({
               }
             />
             <Item
-              label="Grupos"
+              label="Categorías"
               value={
                 user.groups && user.groups.length > 0 ? (
                   <GroupChips groups={user.groups} />
@@ -296,6 +297,13 @@ export default function UserDetails({
 
       {isStudent && (
         <>
+          <StudentEnrollmentsSection
+            studentId={user.id}
+            studentName={`${user.first_name} ${user.last_name}`}
+            studentGroups={user.groups ?? []}
+            onChanged={onRefresh}
+          />
+
           <section className="form-section" style={{ marginTop: 24 }}>
             <h4 className="form-section__title">Cobros recurrentes</h4>
 

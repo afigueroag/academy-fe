@@ -3,7 +3,8 @@ import type { GroupCategoryRead, GroupPublic, GroupRead } from '../types';
 import { ApiError, listGroupCategories } from '../api';
 import { SpinnerIcon } from '../brand';
 
-// Ordena los grupos de una categoría: ordinales por rank asc, el resto por nombre.
+// Ordena las categorías de una clasificación: ordinales por rank asc, el resto
+// por nombre.
 function sortGroups(groups: GroupRead[], isOrdinal: boolean): GroupRead[] {
   return [...groups].sort((a, b) => {
     if (isOrdinal) {
@@ -20,9 +21,9 @@ interface GroupPickerProps {
   onChange: (groups: GroupRead[]) => void;
 }
 
-// Selector reutilizable de grupos: carga categorías+grupos y los presenta como
-// chips agrupados por categoría. Permite seleccionar varios, incluso de la misma
-// categoría.
+// Selector reutilizable de categorías: carga clasificaciones+categorías y las
+// presenta como chips agrupados por clasificación. Permite seleccionar varias,
+// incluso de la misma clasificación.
 export default function GroupPicker({ value, onChange }: GroupPickerProps) {
   const [categories, setCategories] = useState<GroupCategoryRead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export default function GroupPicker({ value, onChange }: GroupPickerProps) {
           setError(
             err instanceof ApiError
               ? err.message
-              : 'No se pudieron cargar los grupos.',
+              : 'No se pudieron cargar las categorías.',
           );
         }
       } finally {
@@ -74,7 +75,7 @@ export default function GroupPicker({ value, onChange }: GroupPickerProps) {
   if (loading) {
     return (
       <div className="loading-row">
-        <SpinnerIcon size={16} /> Cargando grupos…
+        <SpinnerIcon size={16} /> Cargando categorías…
       </div>
     );
   }
@@ -92,7 +93,7 @@ export default function GroupPicker({ value, onChange }: GroupPickerProps) {
   if (withGroups.length === 0) {
     return (
       <p className="field__hint">
-        No hay grupos definidos. Créalos en el módulo Grupos.
+        No hay categorías definidas. Créalas en el módulo Categorías.
       </p>
     );
   }
@@ -136,7 +137,7 @@ export default function GroupPicker({ value, onChange }: GroupPickerProps) {
   );
 }
 
-// Chips read-only para vistas de detalle. Muestra "Categoría: Grupo" para dar
+// Chips read-only para vistas de detalle. Muestra "Clasificación: Categoría" para dar
 // contexto. Devuelve un <span> para poder usarse dentro de un detail-item.
 export function GroupChips({ groups }: { groups: GroupPublic[] }) {
   if (groups.length === 0) {

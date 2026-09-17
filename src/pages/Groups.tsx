@@ -31,7 +31,8 @@ import {
   TrashIcon,
 } from '../brand';
 
-// Ordena los grupos de una categoría: los ordinales por rank asc, el resto por nombre.
+// Ordena las categorías de una clasificación: las ordinales por rank asc, el
+// resto por nombre.
 function sortGroups(groups: GroupRead[], isOrdinal: boolean): GroupRead[] {
   return [...groups].sort((a, b) => {
     if (isOrdinal) {
@@ -63,8 +64,8 @@ export default function Groups() {
   const [listError, setListError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  // Orden local de los grupos de la categoría ordinal seleccionada (mientras el
-  // usuario reordena, antes de "Guardar orden").
+  // Orden local de las categorías de la clasificación ordinal seleccionada
+  // (mientras el usuario reordena, antes de "Guardar orden").
   const [orderedGroups, setOrderedGroups] = useState<GroupRead[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
 
@@ -99,7 +100,7 @@ export default function Groups() {
       const message =
         err instanceof ApiError
           ? err.message
-          : 'No se pudieron cargar las categorías. Intenta de nuevo.';
+          : 'No se pudieron cargar las clasificaciones. Intenta de nuevo.';
       setListError(message);
       setCategories([]);
     } finally {
@@ -187,8 +188,27 @@ export default function Groups() {
     setDeleting(true);
     try {
       await deleteGroupCategory(toDeleteCategory.id);
-      showToast(`Categoría "${toDeleteCategory.name}" eliminada`);
+      showToast(`Clasificación "${toDeleteCategory.name}" eliminada`);
       setToDeleteCategory(null);
+      await fetchCategories();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'No se pudo eliminar la clasificación.';
+      setListError(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!toDeleteGroup) return;
+    setDeleting(true);
+    try {
+      await deleteGroup(toDeleteGroup.id);
+      showToast(`Categoría "${toDeleteGroup.name}" eliminada`);
+      setToDeleteGroup(null);
       await fetchCategories();
     } catch (err) {
       const message =
@@ -201,29 +221,12 @@ export default function Groups() {
     }
   };
 
-  const handleDeleteGroup = async () => {
-    if (!toDeleteGroup) return;
-    setDeleting(true);
-    try {
-      await deleteGroup(toDeleteGroup.id);
-      showToast(`Grupo "${toDeleteGroup.name}" eliminado`);
-      setToDeleteGroup(null);
-      await fetchCategories();
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'No se pudo eliminar el grupo.';
-      setListError(message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const actions = (
     <button
       className="btn btn--primary"
       onClick={() => setCategoryPanel({ mode: 'create' })}
     >
-      <PlusIcon size={14} /> Nueva categoría
+      <PlusIcon size={14} /> Nueva clasificación
     </button>
   );
 
@@ -234,14 +237,14 @@ export default function Groups() {
     : [];
 
   return (
-    <Layout title="Grupos" actions={actions}>
+    <Layout title="Categorías" actions={actions}>
       <section className="summary-grid">
         <div className="summary-card">
-          <p className="summary-card__label">Categorías</p>
+          <p className="summary-card__label">Clasificaciones</p>
           <div className="summary-card__value">{categories.length}</div>
         </div>
         <div className="summary-card">
-          <p className="summary-card__label">Grupos</p>
+          <p className="summary-card__label">Categorías</p>
           <div className="summary-card__value">{totalGroups}</div>
         </div>
       </section>
@@ -272,9 +275,9 @@ export default function Groups() {
         ) : categories.length === 0 ? (
           <div className="table-wrapper">
             <div className="empty-state">
-              <p className="empty-state__title">Aún no hay categorías</p>
+              <p className="empty-state__title">Aún no hay clasificaciones</p>
               <p className="empty-state__hint">
-                Crea una categoría (por ejemplo "Cintas" o "Niveles") para
+                Crea una clasificación (por ejemplo "Cintas" o "Niveles") para
                 empezar a organizar a tus alumnos y clases.
               </p>
             </div>
@@ -308,7 +311,7 @@ export default function Groups() {
                       </span>
                       <span className="group-category-item__count">
                         {cat.groups.length}{' '}
-                        {cat.groups.length === 1 ? 'grupo' : 'grupos'}
+                        {cat.groups.length === 1 ? 'categoría' : 'categorías'}
                       </span>
                     </span>
                   </button>
@@ -323,16 +326,16 @@ export default function Groups() {
                     <h2 className="group-detail__title">{selected.name}</h2>
                     <p className="group-detail__subtitle">
                       {selected.is_ordinal
-                        ? 'Categoría ordinal — usa las flechas para ordenar los grupos del más básico al más avanzado.'
-                        : 'Categoría cualitativa — coincidencia exacta, sin orden.'}
+                        ? 'Clasificación ordinal — usa las flechas para ordenar las categorías de la más básica a la más avanzada.'
+                        : 'Clasificación cualitativa — coincidencia exacta, sin orden.'}
                     </p>
                   </div>
                   <div className="row-actions">
                     <button
                       type="button"
                       className="icon-btn"
-                      aria-label="Editar categoría"
-                      title="Editar categoría"
+                      aria-label="Editar clasificación"
+                      title="Editar clasificación"
                       onClick={() =>
                         setCategoryPanel({ mode: 'edit', category: selected })
                       }
@@ -342,8 +345,8 @@ export default function Groups() {
                     <button
                       type="button"
                       className="icon-btn icon-btn--danger"
-                      aria-label="Eliminar categoría"
-                      title="Eliminar categoría"
+                      aria-label="Eliminar clasificación"
+                      title="Eliminar clasificación"
                       onClick={() => setToDeleteCategory(selected)}
                     >
                       <TrashIcon size={16} />
@@ -369,15 +372,15 @@ export default function Groups() {
                       setGroupPanel({ mode: 'create', category: selected })
                     }
                   >
-                    <PlusIcon size={14} /> Agregar grupo
+                    <PlusIcon size={14} /> Agregar categoría
                   </button>
                 </div>
 
                 {displayGroups.length === 0 ? (
                   <div className="empty-state">
-                    <p className="empty-state__title">Sin grupos</p>
+                    <p className="empty-state__title">Sin categorías</p>
                     <p className="empty-state__hint">
-                      Agrega los grupos de esta categoría.
+                      Agrega las categorías de esta clasificación.
                     </p>
                   </div>
                 ) : (
@@ -420,8 +423,8 @@ export default function Groups() {
                           <button
                             type="button"
                             className="icon-btn"
-                            aria-label="Editar grupo"
-                            title="Editar grupo"
+                            aria-label="Editar categoría"
+                            title="Editar categoría"
                             onClick={() =>
                               setGroupPanel({
                                 mode: 'edit',
@@ -435,8 +438,8 @@ export default function Groups() {
                           <button
                             type="button"
                             className="icon-btn icon-btn--danger"
-                            aria-label="Eliminar grupo"
-                            title="Eliminar grupo"
+                            aria-label="Eliminar categoría"
+                            title="Eliminar categoría"
                             onClick={() => setToDeleteGroup(g)}
                           >
                             <TrashIcon size={16} />
@@ -461,8 +464,8 @@ export default function Groups() {
             if (created) setSelectedId(cat.id);
             showToast(
               created
-                ? `Categoría "${cat.name}" creada`
-                : `Categoría "${cat.name}" actualizada`,
+                ? `Clasificación "${cat.name}" creada`
+                : `Clasificación "${cat.name}" actualizada`,
             );
             await fetchCategories();
           }}
@@ -476,7 +479,9 @@ export default function Groups() {
           onSaved={async (g, created) => {
             setGroupPanel(null);
             showToast(
-              created ? `Grupo "${g.name}" creado` : `Grupo "${g.name}" actualizado`,
+              created
+                ? `Categoría "${g.name}" creada`
+                : `Categoría "${g.name}" actualizada`,
             );
             await fetchCategories();
           }}
@@ -485,10 +490,10 @@ export default function Groups() {
 
       <ConfirmModal
         open={toDeleteCategory !== null}
-        title="Eliminar categoría"
+        title="Eliminar clasificación"
         message={
           toDeleteCategory
-            ? `Se eliminará "${toDeleteCategory.name}" y sus grupos. Esto solo quita las asignaciones de los estudiantes y clases; no los afecta de otra forma. ¿Continuar?`
+            ? `Se eliminará "${toDeleteCategory.name}" y sus categorías. Esto solo quita las asignaciones de los estudiantes y clases; no los afecta de otra forma. ¿Continuar?`
             : ''
         }
         confirmLabel="Eliminar"
@@ -500,10 +505,10 @@ export default function Groups() {
 
       <ConfirmModal
         open={toDeleteGroup !== null}
-        title="Eliminar grupo"
+        title="Eliminar categoría"
         message={
           toDeleteGroup
-            ? `Se eliminará el grupo "${toDeleteGroup.name}". Esto solo quita la asignación de los estudiantes y clases que lo tengan. ¿Continuar?`
+            ? `Se eliminará la categoría "${toDeleteGroup.name}". Esto solo quita la asignación de los estudiantes y clases que la tengan. ¿Continuar?`
             : ''
         }
         confirmLabel="Eliminar"
@@ -516,7 +521,7 @@ export default function Groups() {
   );
 }
 
-// ---------- Formulario de categoría ----------
+// ---------- Formulario de clasificación ----------
 
 interface CategoryFormProps {
   panel: CategoryPanel;
@@ -563,7 +568,7 @@ function CategoryForm({ panel, onClose, onSaved }: CategoryFormProps) {
         setFormError(err.message);
         if (err.fieldErrors.name) setNameError(err.fieldErrors.name);
       } else {
-        setFormError('No se pudo guardar la categoría. Intenta de nuevo.');
+        setFormError('No se pudo guardar la clasificación. Intenta de nuevo.');
       }
     } finally {
       setSubmitting(false);
@@ -573,8 +578,8 @@ function CategoryForm({ panel, onClose, onSaved }: CategoryFormProps) {
   return (
     <SidePanel
       open
-      title={isEdit ? 'Editar categoría' : 'Nueva categoría'}
-      subtitle="Una categoría agrupa varios grupos (cintas, niveles, edades…)."
+      title={isEdit ? 'Editar clasificación' : 'Nueva clasificación'}
+      subtitle="Una clasificación agrupa varias categorías (cintas, niveles, edades…)."
       onClose={() => !submitting && onClose()}
       footer={
         <>
@@ -622,10 +627,10 @@ function CategoryForm({ panel, onClose, onSaved }: CategoryFormProps) {
 
         <div className="switch-row">
           <div>
-            <div className="switch-row__label">Categoría ordinal</div>
+            <div className="switch-row__label">Clasificación ordinal</div>
             <div className="switch-row__hint">
               Actívala si el orden importa (principiante → avanzado). Podrás
-              ordenar los grupos manualmente.
+              ordenar las categorías manualmente.
             </div>
           </div>
           <label className="switch">
@@ -643,7 +648,7 @@ function CategoryForm({ panel, onClose, onSaved }: CategoryFormProps) {
   );
 }
 
-// ---------- Formulario de grupo ----------
+// ---------- Formulario de categoría ----------
 
 interface GroupFormProps {
   panel: GroupPanel;
@@ -660,7 +665,7 @@ function GroupForm({ panel, onClose, onSaved }: GroupFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Al crear en una categoría ordinal, el grupo nuevo toma el siguiente número
+  // Al crear en una clasificación ordinal, la categoría nueva toma el siguiente número
   // natural (se agrega al final). En edición se conserva el rango existente; el
   // orden se cambia desde la lista, no aquí.
   const nextRank =
@@ -704,7 +709,7 @@ function GroupForm({ panel, onClose, onSaved }: GroupFormProps) {
         setFormError(err.message);
         if (err.fieldErrors.name) setNameError(err.fieldErrors.name);
       } else {
-        setFormError('No se pudo guardar el grupo. Intenta de nuevo.');
+        setFormError('No se pudo guardar la categoría. Intenta de nuevo.');
       }
     } finally {
       setSubmitting(false);
@@ -714,7 +719,7 @@ function GroupForm({ panel, onClose, onSaved }: GroupFormProps) {
   return (
     <SidePanel
       open
-      title={isEdit ? 'Editar grupo' : 'Nuevo grupo'}
+      title={isEdit ? 'Editar categoría' : 'Nueva categoría'}
       subtitle={category.name}
       onClose={() => !submitting && onClose()}
       footer={
@@ -762,7 +767,7 @@ function GroupForm({ panel, onClose, onSaved }: GroupFormProps) {
           {category.is_ordinal && !isEdit && (
             <span className="field__hint">
               Se agregará al final del orden (posición {nextRank}). Podrás
-              moverlo con las flechas.
+              moverla con las flechas.
             </span>
           )}
         </div>

@@ -340,7 +340,7 @@ function statusPatch(u: UserListRead, status: UserStatus): UserUpdate {
  * Vuelca sobre la ficha recién reactivada lo que se acababa de teclear en el
  * alta, para no perderlo. Solo pisan los valores con contenido: si el alta dejó
  * un campo vacío y la ficha archivada lo tenía, gana el de la ficha. Los arrays
- * vacíos también se descartan, o un alta sin grupos borraría los que ya tenía.
+ * vacíos también se descartan, o un alta sin categorías borraría las que ya tenía.
  */
 function mergeAttempted(
   user: UserRead,

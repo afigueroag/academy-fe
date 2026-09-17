@@ -249,8 +249,8 @@ export interface UserRead {
   // Año de ingreso derivado de `start_date` por el backend. Se usa como prefijo
   // del número de estudiante en la tabla (p. ej. 2025-839).
   entry_year: number | null;
-  // Grupos a los que pertenece el alumno (puede pertenecer a varios, incluso de
-  // la misma categoría). Ver GroupPublic.
+  // Categorías a las que pertenece el alumno (puede pertenecer a varias, incluso
+  // de la misma clasificación). Ver GroupPublic.
   groups?: GroupPublic[] | null;
   // Clases en las que está inscrito. El backend las resuelve en el propio
   // listado (`UserListRead`), así que la tabla no necesita pegarle a
@@ -266,10 +266,13 @@ export interface UserRead {
   enrollment_fee_mode: EnrollmentFeeMode | null;
 }
 
-// ---------- Grupos ----------
-// Modelo de dos niveles: una Categoría (is_ordinal) contiene varios Grupos.
-// `is_ordinal=false` → grupo cualitativo (rank no aplica). `is_ordinal=true` →
-// grupo ordinal (importa el orden: cada grupo tiene rank).
+// ---------- Categorías ----------
+// Modelo de dos niveles: una Clasificación (is_ordinal) contiene varias
+// Categorías. En el código los nombres siguen siendo `GroupCategory` (nivel 1) y
+// `Group` (nivel 2) porque así los expone el backend; en la UI se llaman
+// "Clasificación" y "Categoría".
+// `is_ordinal=false` → categoría cualitativa (rank no aplica). `is_ordinal=true`
+// → categoría ordinal (importa el orden: cada una tiene rank).
 
 export interface GroupCategoryPublic {
   id: number;
@@ -289,7 +292,7 @@ export interface GroupPublic {
   name: string;
   category_id: number;
   rank: number | null;
-  category: GroupCategoryPublic; // categoría anidada (úsala para is_ordinal/nombre)
+  category: GroupCategoryPublic; // clasificación anidada (úsala para is_ordinal/nombre)
 }
 
 // En openapi.json GroupRead es GroupPublic + `academy_id` (opcional). Se expone
@@ -298,9 +301,10 @@ export interface GroupRead extends GroupPublic {
   academy_id?: number | null;
 }
 
-// Forma de grupo que espera el backend al crear/actualizar cursos. A diferencia
-// de la lectura (GroupPublic/GroupRead), no lleva `category` anidada y `academy_id`
-// es requerido. Se construye desde el GroupPicker arrastrando el academy_id del grupo.
+// Forma de categoría que espera el backend al crear/actualizar cursos. A
+// diferencia de la lectura (GroupPublic/GroupRead), no lleva `category` anidada y
+// `academy_id` es requerido. Se construye desde el GroupPicker arrastrando el
+// academy_id de la categoría.
 export interface Group {
   id?: number | null;
   name: string;
@@ -325,7 +329,7 @@ export interface GroupCategoryRead {
   id: number;
   name: string;
   is_ordinal: boolean;
-  groups: GroupRead[]; // grupos anidados
+  groups: GroupRead[]; // categorías anidadas
 }
 
 export interface GroupCategoryCreate {
@@ -910,9 +914,9 @@ export interface CourseStudentRead {
   schedules: Schedule[];
   instructor_links: CourseInstructorLinkPublic[];
   has_capacity: boolean;
-  // Calculado por el backend: si el alumno cumple las reglas de grupos de la clase.
+  // Calculado por el backend: si el alumno cumple las reglas de categorías de la clase.
   can_enroll: boolean;
-  // Grupos requeridos por la clase (para mostrar el motivo del bloqueo).
+  // Categorías requeridas por la clase (para mostrar el motivo del bloqueo).
   groups: GroupPublic[];
 }
 

@@ -41,7 +41,7 @@ export default function EnrollmentSection({
   } | null>(null);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [studentConflicts, setStudentConflicts] = useState<Conflict[]>([]);
-  // Advertencia no bloqueante: el alumno no cumple los grupos de la clase.
+  // Advertencia no bloqueante: el alumno no cumple las categorías de la clase.
   const [groupWarning, setGroupWarning] = useState(false);
 
   const [toRemove, setToRemove] = useState<EnrollmentRead | null>(null);
@@ -82,7 +82,7 @@ export default function EnrollmentSection({
     .map((e) => e.student.id);
 
   // El admin debe confirmar manualmente si hay conflictos de horario o si el
-  // alumno no cumple los grupos. Ninguno bloquea: solo advierte.
+  // alumno no cumple las categorías. Ninguno bloquea: solo advierte.
   const needsConfirm = studentConflicts.length > 0 || groupWarning;
 
   const performInscribe = async (studentId: number) => {
@@ -252,7 +252,7 @@ export default function EnrollmentSection({
             <div className="alert alert--warning" role="status">
               <div className="alert__head">
                 <WarningIcon size={14} />
-                El alumno no cumple los grupos requeridos por la clase.
+                El alumno no cumple las categorías requeridas por la clase.
               </div>
               {course.groups.length > 0 && (
                 <ul className="alert__list">

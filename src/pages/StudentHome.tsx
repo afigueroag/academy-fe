@@ -49,7 +49,7 @@ function asStudentCourse(c: CourseRead): CourseStudentRead {
       instructor: l.instructor,
     })),
     has_capacity: true,
-    // Curso ya inscrito: can_enroll no aplica; los grupos se arrastran del curso.
+    // Curso ya inscrito: can_enroll no aplica; las categorías se arrastran del curso.
     can_enroll: true,
     groups: c.groups,
   };

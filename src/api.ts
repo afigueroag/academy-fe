@@ -406,7 +406,7 @@ export async function deleteUser(id: number): Promise<UserPublic> {
  * reaparecer sola en los KPIs sería decidir por quien reactiva. Los cobros
  * recurrentes **no** se reactivan (el dinero se reanuda a mano) y los cargos
  * futuros cancelados en el borrado no vuelven; el historial, los documentos, los
- * grupos y la deuda pendiente sí se conservan.
+ * categorías y la deuda pendiente sí se conservan.
  *
  * Para devolverle además el acceso hay que invitar DESPUÉS de reactivar: el
  * backend bloquea el login de las fichas archivadas y responde `user_deleted` si
@@ -607,7 +607,7 @@ export async function deleteEnrollment(
   return (await res.json()) as EnrollmentRead;
 }
 
-// ---------- Grupos ----------
+// ---------- Categorías (backend: groups / group categories) ----------
 
 export async function listGroupCategories(): Promise<GroupCategoryRead[]> {
   const res = await authFetch('/groups/categories');
@@ -1107,7 +1107,7 @@ export async function deleteDocument(docId: number): Promise<DocumentRead> {
 
 // ---------- Finanzas (dashboards) ----------
 // Solo lectura. month (1-12), year (>=2025). No se envía group_category_id: el
-// desglose de ingresos es por usuario, no por grupo.
+// desglose de ingresos es por usuario, no por categoría.
 
 function dashboardQuery(month: number, year: number): string {
   const q = new URLSearchParams();
